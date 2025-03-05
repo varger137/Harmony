@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Создать канал</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Создать новый канал</h1>
+        <form id="createChannelForm">
+            <label for="name">Название:</label>
+            <input type="text" id="name" required>
+            <label for="description">Описание:</label>
+            <textarea id="description"></textarea>
+            <div class="nav-buttons">
+                <button type="submit">Создать</button>
+                <button onclick="window.location.href='get_all_channels.html'">Назад к списку каналов</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const baseUrl = 'http://localhost:5091';
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            alert('Сначала войдите в систему');
+            window.location.href = '../UserFr/login_user.html';
+        }
+
+        document.getElementById('createChannelForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const channelData = {
+                name: document.getElementById('name').value,
+                description: document.getElementById('description').value
+            };
+
+            const response = await fetch(`${baseUrl}/channels/create`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(channelData)
+            });
+
+            if (response.ok) {
+                alert('Канал успешно создан!');
+                window.location.href = 'get_all_channels.html';
+            } else {
+                const statusCode = response.status;
+                alert(`Ошибка ${statusCode}`);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Room</title>
+    <link rel="stylesheet" href="../styles.css"> 
+</head>
+<body>
+    <div class="container">
+        <h1>Chat Room <span id="chatId"></span></h1>
+        <div id="chat" class="card"></div>
+        <div class="nav-buttons">
+            <input type="text" id="messageInput" placeholder="Type your message...">
+            <button id="sendButton">Отправить</button>
+
+            <p><button onclick="window.location.href='../ChannelFr/get_channel.html?id=' + channelId">Назад к каналу</button></p>
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = 'http://localhost:5091';
+        const token = localStorage.getItem('token');
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const chatId = urlParams.get('chatId');
+        const channelId = urlParams.get('channelId');
+
+        if (!token) {
+            alert('Please login first');
+            window.location.href = '../UserFr/login_user.html';
+        }
+
+
+        document.getElementById('chatId').textContent = `#${chatId}`;
+
+
+        async function loadMessages() {
+    try {
+        const response = await fetch(`${baseUrl}/channels/${channelId}/chats/${chatId}/messages`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load messages');
+        }
+
+        const messages = await response.json();
+        console.log('Loaded messages:', messages);
+
+        const chat = document.getElementById('chat');
+        chat.innerHTML = '';
+
+        messages.forEach(message => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+
+            const NickName = message.nickName.charAt(0).toUpperCase() + message.nickName.slice(1);
+
+            const dateTime = new Date(message.dateTime);
+            const DateTime = `${dateTime.getDate().toString().padStart(2, '0')}.${(dateTime.getMonth() + 1).toString().padStart(2, '0')}.${dateTime.getFullYear()}, ${dateTime.getHours().toString().padStart(2, '0')}:${dateTime.getMinutes().toString().padStart(2, '0')}:${dateTime.getSeconds().toString().padStart(2, '0')}`;
+
+            messageDiv.textContent = `${NickName}: ${message.text} (${DateTime})`;
+            chat.appendChild(messageDiv);
+        });
+
+
+        chat.scrollTop = chat.scrollHeight;
+    } catch (error) {
+        console.error('Error loading messages:', error);
+    }
+}
+
+
+        const ws = new WebSocket(`ws://localhost:5091/ws/chat/${chatId}?token=${token}`);
+
+        ws.onopen = () => {
+            console.log('WebSocket connection established');
+            loadMessages();
+        };
+
+        ws.onmessage = (event) => {
+    try {
+        const messageText = event.data;
+
+        const chat = document.getElementById('chat');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+
+        const NickName = "Вы".charAt(0).toUpperCase() + "Вы".slice(1);
+
+        const dateTime = new Date().toLocaleString();
+
+        messageDiv.textContent = `${NickName}: ${messageText} (${dateTime})`;
+
+        chat.appendChild(messageDiv);
+
+
+        chat.scrollTop = chat.scrollHeight;
+    } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
+    }
+};
+
+        ws.onclose = () => {
+            console.log('WebSocket connection closed');
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+document.getElementById('sendButton').addEventListener('click', () => {
+    const input = document.getElementById('messageInput');
+    const messageText = input.value.trim();
+
+    if (messageText) {
+        ws.send(messageText); 
+        input.value = ''; 
+    }
+});
+
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('sendButton').click();
+            }
+        });
+    </script>
+</body>
+</html>

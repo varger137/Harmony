@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login User</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>С возвращением!</h1>
+        <form id="loginForm">
+            <label for="login">Логин</label>
+            <input type="text" id="login" required>
+            <label for="password">Пароль</label>
+            <input type="password" id="password" required>
+            <div class="nav-buttons">
+                <button type="submit">Войти</button>
+                <button onclick="window.location.href='register_user.html'">Зарегистрироваться</button>
+            </div>
+        </form>
+        <pre id="result"></pre>
+    </div>
+
+    <script>
+        const baseUrl = 'http://localhost:5091'; 
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const login = document.getElementById('login').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch(`${baseUrl}/users/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ login, password })
+            });
+
+            const result = await response.json();
+            if (response.ok) {
+                if (result.token) {
+                    localStorage.setItem('token', result.token);
+                    window.location.href = 'get_account.html';
+                } 
+            } 
+        });
+    </script>
+</body>
+</html>

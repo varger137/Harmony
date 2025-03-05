@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Изменить чат</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Изменить чат</h1>
+        <form id="updateChatForm">
+            <label for="name">Название:</label>
+            <input type="text" id="name" required>
+            <div class="nav-buttons">
+                <button type="submit">Сохранить изменения</button>
+                <button onclick="window.location.href='../ChannelFr/get_channel.html?id=${channelId}'">Назад к каналу</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const baseUrl = 'http://localhost:5091';
+        const token = localStorage.getItem('token');
+        const urlParams = new URLSearchParams(window.location.search);
+        const chatId = urlParams.get('chatId');
+        const channelId = urlParams.get('channelId');
+
+        if (!token) {
+            alert('Сначала войдите в систему');
+            window.location.href = '../UserFr/login_user.html';
+        }
+
+
+        document.querySelector('button[onclick*="get_channel.html"]')
+            .setAttribute('onclick', `window.location.href='../ChannelFr/get_channel.html?id=${channelId}'`);
+
+
+        document.getElementById('updateChatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const chatData = {
+                name: document.getElementById('name').value
+            };
+
+            const response = await fetch(`${baseUrl}/channels/${channelId}/chats/put/${chatId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(chatData)
+            });
+
+            if (response.ok) {
+                alert('Чат успешно обновлен!');
+                window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
+            } else {
+                const error = await response.text();
+                alert(`Ошибка: ${error}`);
+            }
+        });
+    </script>
+</body>
+</html>

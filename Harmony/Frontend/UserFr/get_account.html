@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Account</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Ваш профиль</h1>
+        <div class="nav-buttons">
+            <button onclick="window.location.href='update_account.html'">Редактировать профиль</button>
+            <button onclick="window.location.href='../ChannelFr/get_all_channels.html'">Список каналов</button>
+            <button onclick="logout()">Выход</button>
+        </div>
+        <div id="account-info" class="card"></div>
+        <div class="nav-buttons">
+            <button onclick="deleteAccount()">Удалить аккаунт</button>
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = 'http://localhost:5091'; 
+
+        getAccount()
+
+        async function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login_user.html';
+                return;
+            }
+
+            const response = await fetch(`${baseUrl}/users/account`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                window.location.href = 'login_user.html';
+            }
+        }
+
+
+        checkAuth();
+
+        function displayAccountInfo(account) {
+            const accountInfo = document.getElementById('account-info');
+            accountInfo.innerHTML = `
+                <p><strong>ID:</strong> ${account.id}</p>
+                <p><strong>Логин:</strong> ${account.login}</p>
+                <p><strong>Имя:</strong> ${account.nickName}</p>
+                <h3>Созданные каналы</h3>
+                ${account.channels.length > 0 ? 
+                    `<ul>
+                        ${account.channels.map(channel => `
+                            <li>
+                                <strong>${channel.name}</strong><br>
+                                ${channel.description}<br>
+                                <small>ID: ${channel.id}</small>
+                            </li>
+                        `).join('')}
+                    </ul>` : 
+                    '<p>У вас нет созданных вами каналов</p>'}
+            `;
+        }
+
+        async function getAccount() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert("Сначала вам нужно войти в систему.");
+                window.location.href = 'login_user.html';
+                return;
+            }
+
+            const response = await fetch(`${baseUrl}/users/account`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 401) {
+                localStorage.removeItem('token');
+                window.location.href = 'login_user.html';
+                return;
+            }
+
+            const result = await response.json();
+            displayAccountInfo(result);
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'login_user.html';
+        }
+
+        async function deleteAccount() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert("Сначала вам нужно войти в систему.");
+                window.location.href = 'login_user.html';
+                return;
+            }
+
+
+            const accountResponse = await fetch(`${baseUrl}/users/account`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const account = await accountResponse.json();
+
+            if (confirm("Вы уверены, что хотите удалить свою учетную запись? Это действие невозможно отменить!")) {
+                const response = await fetch(`${baseUrl}/users/delete/${account.id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    localStorage.removeItem('token');
+                    window.location.href = 'login_user.html';
+                } else {
+                    alert("Не удалось удалить аккаунт");
+                }
+            }
+        }
+    </script>
+</body>
+</html>

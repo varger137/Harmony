@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Все каналы</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Список всех каналов</h1>
+        <div id="channelsList"></div>
+        <div class="nav-buttons">
+            <button onclick="window.location.href='create_channel.html'">Создать новый канал</button>
+        </div>
+        <br>
+        <div>
+       
+            <input type="text" id="channelIdInput" placeholder="Введите ID канала">
+            <button id="joinChannelButton">Присоединиться к каналу</button>
+            
+            <p><button onclick="window.location.href='../UserFr/get_account.html'">Вернуться в профиль</button></p>
+            
+        </div>
+    </div>
+
+    <script>
+        const baseUrl = 'http://localhost:5091';
+        const token = localStorage.getItem('token');
+
+        if (!token) {
+            alert('Сначала войдите в систему');
+            window.location.href = '../UserFr/login_user.html';
+        }
+
+        async function loadChannels() {
+            const response = await fetch(`${baseUrl}/channels`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 403) {
+                alert('У вас нет доступа к этому каналу');
+                return;
+            }
+
+            if (response.ok) {
+                const channels = await response.json();
+                const channelsList = document.getElementById('channelsList');
+                
+                if (channels.length === 0) {
+                    channelsList.innerHTML = '<p>Вы пока не присоеденились ни к одному каналу</p>';
+                    return;
+                }
+                
+                channels.forEach(channel => {
+                    const channelDiv = document.createElement('div');
+                    channelDiv.innerHTML = `
+                        <h3>${channel.name}</h3>
+                        <p>${channel.description || 'Нет описания'}</p>
+                        <button onclick="window.location.href='get_channel.html?id=${channel.id}'">Подробнее</button>
+                        <hr>
+                    `;
+                    channelsList.appendChild(channelDiv);
+                });
+            } else {
+                alert('Ошибка при загрузке каналов');
+            }
+        }
+
+        document.getElementById('joinChannelButton').addEventListener('click', async () => {
+            const channelId = document.getElementById('channelIdInput').value;
+            if (!channelId) {
+                alert('Введите ID канала');
+                return;
+            }
+
+            const response = await fetch(`${baseUrl}/channels/${channelId}/join`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                alert('Вы успешно присоединились к каналу!');
+                loadChannels(); 
+            } else {
+                const statusCode = response.status;
+                alert(`Ошибка ${statusCode}`);
+            }
+        });
+
+        loadChannels();
+    </script>
+</body>
+</html>

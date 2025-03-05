@@ -13,19 +13,15 @@ using System.Text;
 
 
 var builder = WebApplication.CreateBuilder();
-
-
+builder.Services.AddCors();
 builder.Services.AddAutoMapper(typeof(Program));
-
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
-
 builder.Services.AddScoped<UserRepository>();
 builder.Services.AddScoped<ChannelRepository>();
 builder.Services.AddScoped<ChatRepository>();
 builder.Services.AddScoped<MessageRepository>();
-
 
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
@@ -39,12 +35,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
     });
 
 
-
-
 var app = builder.Build();
-
+app.UseCors(o => o.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
 app.UseWebSockets();
-
 app.UseAuthentication();
 app.UseAuthorization();
 
