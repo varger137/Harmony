@@ -9,7 +9,8 @@ using TaskCraft.DTOs;
 using System.Net.WebSockets;
 using Infrastructure.Auth;
 using System.Text;
-
+using System.Collections.Concurrent;
+using System.Text.Json;
 
 
 var builder = WebApplication.CreateBuilder();
@@ -43,6 +44,8 @@ app.UseAuthorization();
 
 
 #region ws
+var webSockets = new ConcurrentDictionary<Guid, WebSocket>();
+
 app.Map("/ws/chat/{chatId}", async context =>
 {
     var chatId = context.Request.RouteValues["chatId"]?.ToString();
@@ -61,15 +64,17 @@ app.Map("/ws/chat/{chatId}", async context =>
         return;
     }
 
-    var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-    Console.WriteLine($"WebSocket connection established. ChatId: {chatId}, UserId: {userId}");
+    var userId = Guid.Parse(principal.FindFirst(ClaimTypes.NameIdentifier)?.Value);
 
     if (context.WebSockets.IsWebSocketRequest)
     {
         using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        var buffer = new byte[1024 * 4];
+        
+        webSockets[userId] = webSocket;
 
+        var buffer = new byte[1024 * 4];
         var messageRepository = context.RequestServices.GetRequiredService<MessageRepository>();
+        var userRepository = context.RequestServices.GetRequiredService<UserRepository>();
 
         while (webSocket.State == WebSocketState.Open)
         {
@@ -78,32 +83,51 @@ app.Map("/ws/chat/{chatId}", async context =>
             if (result.MessageType == WebSocketMessageType.Text)
             {
                 var messageText = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                Console.WriteLine($"Received message: {messageText}");
 
-                if (Guid.TryParse(chatId, out var chatGuid) && Guid.TryParse(userId, out var userGuid))
+                if (Guid.TryParse(chatId, out var chatGuid))
                 {
                     var messageDto = new CreateMessageDTO
                     {
                         Text = messageText,
                         ChatId = chatGuid,
-                        UserId = userGuid
+                        UserId = userId
                     };
 
                     await messageRepository.AddMessageAsync(messageDto);
-                    Console.WriteLine("Message saved to database.");
-                }
-                else
-                {
-                    Console.WriteLine($"Failed to parse. chatId: {chatId}, userId: {userId}");
-                }
 
-                await webSocket.SendAsync(
-                    new ArraySegment<byte>(Encoding.UTF8.GetBytes(messageText)),
-                    WebSocketMessageType.Text, true, CancellationToken.None);
+
+                    var user = await userRepository.GetUserById(userId);
+                    var nickName = user?.NickName ?? "Unknown";
+
+
+                    var messageObject = new
+                    {
+                        Text = messageText,
+                        NickName = nickName,
+                        DateTime = DateTime.UtcNow
+                    };
+
+                    var messageJson = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(messageObject));
+
+
+                    foreach (var socket in webSockets.Values)
+                    {
+                        if (socket.State == WebSocketState.Open)
+                        {
+                            await socket.SendAsync(
+                                new ArraySegment<byte>(messageJson),
+                                WebSocketMessageType.Text,
+                                true,
+                                CancellationToken.None
+                            );
+                        }
+                    }
+                }
             }
             else if (result.MessageType == WebSocketMessageType.Close)
             {
                 await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                webSockets.TryRemove(userId, out _);
             }
         }
     }
@@ -112,6 +136,7 @@ app.Map("/ws/chat/{chatId}", async context =>
         context.Response.StatusCode = StatusCodes.Status400BadRequest;
     }
 });
+
 
 app.MapGet("/channels/{channelId}/chats/{chatId}/messages", [Authorize] async (
     MessageRepository messageRepository,
@@ -251,7 +276,7 @@ app.MapGet("/channels/{id}", [Authorize] async (ChannelRepository channelReposit
 {
     var userId = Guid.Parse(ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
     
-    // Проверяем, есть ли пользователь в проекте
+
     if (!await channelRepository.IsUserInChannel(id, userId))
     {
         return Results.Forbid();

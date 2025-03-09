@@ -11,8 +11,7 @@
         <div class="nav-buttons">
             <input type="text" id="messageInput" placeholder="Type your message...">
             <button id="sendButton">Отправить</button>
-
-            <p><button onclick="window.location.href='../ChannelFr/get_channel.html?id=' + channelId">Назад к каналу</button></p>
+            <p><button onclick="window.location.href='../ChannelFr/get_channel.html?id=' + channelId">Назад к проекту</button></p>
         </div>
     </div>
 
@@ -30,71 +29,87 @@
         }
 
 
-        document.getElementById('chatId').textContent = `#${chatId}`;
+        async function getNickName() {
+            try {
+                const response = await fetch(`${baseUrl}/users/account`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
 
+                if (!response.ok) {
+                    throw new Error('Failed to fetch user data');
+                }
 
-        async function loadMessages() {
-    try {
-        const response = await fetch(`${baseUrl}/channels/${channelId}/chats/${chatId}/messages`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
+                const user = await response.json();
+                return user.nickName; 
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+                return "Вы"; 
             }
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to load messages');
         }
 
-        const messages = await response.json();
-        console.log('Loaded messages:', messages);
+        document.getElementById('chatId').textContent = `#${chatId}`;
 
-        const chat = document.getElementById('chat');
-        chat.innerHTML = '';
+        async function loadMessages() {
+            try {
+                const response = await fetch(`${baseUrl}/channels/${channelId}/chats/${chatId}/messages`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
 
-        messages.forEach(message => {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message';
+                if (!response.ok) {
+                    throw new Error('Failed to load messages');
+                }
 
-            const NickName = message.nickName.charAt(0).toUpperCase() + message.nickName.slice(1);
+                const messages = await response.json();
+                console.log('Loaded messages:', messages);
 
-            const dateTime = new Date(message.dateTime);
-            const DateTime = `${dateTime.getDate().toString().padStart(2, '0')}.${(dateTime.getMonth() + 1).toString().padStart(2, '0')}.${dateTime.getFullYear()}, ${dateTime.getHours().toString().padStart(2, '0')}:${dateTime.getMinutes().toString().padStart(2, '0')}:${dateTime.getSeconds().toString().padStart(2, '0')}`;
+                const chat = document.getElementById('chat');
+                chat.innerHTML = '';
 
-            messageDiv.textContent = `${NickName}: ${message.text} (${DateTime})`;
-            chat.appendChild(messageDiv);
-        });
+                messages.forEach(message => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message';
 
+                    const NickName = message.nickName.charAt(0).toUpperCase() + message.nickName.slice(1);
 
-        chat.scrollTop = chat.scrollHeight;
-    } catch (error) {
-        console.error('Error loading messages:', error);
-    }
-}
+                    const dateTime = new Date(message.dateTime);
+                    const DateTime = `${dateTime.getDate().toString().padStart(2, '0')}.${(dateTime.getMonth() + 1).toString().padStart(2, '0')}.${dateTime.getFullYear()}, ${dateTime.getHours().toString().padStart(2, '0')}:${dateTime.getMinutes().toString().padStart(2, '0')}:${dateTime.getSeconds().toString().padStart(2, '0')}`;
 
+                    messageDiv.textContent = `${NickName}: ${message.text} (${DateTime})`;
+                    chat.appendChild(messageDiv);
+                });
 
-        const ws = new WebSocket(`ws://localhost:5091/ws/chat/${chatId}?token=${token}`);
+                chat.scrollTop = chat.scrollHeight;
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        }
 
-        ws.onopen = () => {
+        const ws = new WebSocket(`ws://localhost:5194/ws/chat/${chatId}?token=${token}`);
+
+        ws.onopen = async () => {
             console.log('WebSocket connection established');
-            loadMessages();
+            await loadMessages();
         };
 
-        ws.onmessage = (event) => {
+        ws.onmessage = async (event) => {
     try {
-        const messageText = event.data;
+        const messageData = JSON.parse(event.data); 
+        const messageText = messageData.Text;
+        const nickName = messageData.NickName;
+        const dateTime = new Date(messageData.DateTime).toLocaleString();
 
         const chat = document.getElementById('chat');
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message';
 
-        const NickName = "Вы".charAt(0).toUpperCase() + "Вы".slice(1);
+        const formattedNickName = nickName.charAt(0).toUpperCase() + nickName.slice(1);
 
-        const dateTime = new Date().toLocaleString();
-
-        messageDiv.textContent = `${NickName}: ${messageText} (${dateTime})`;
-
+        messageDiv.textContent = `${formattedNickName}: ${messageText} (${dateTime})`;
         chat.appendChild(messageDiv);
-
 
         chat.scrollTop = chat.scrollHeight;
     } catch (error) {
@@ -110,15 +125,15 @@
             console.error('WebSocket error:', error);
         };
 
-document.getElementById('sendButton').addEventListener('click', () => {
-    const input = document.getElementById('messageInput');
-    const messageText = input.value.trim();
+        document.getElementById('sendButton').addEventListener('click', () => {
+            const input = document.getElementById('messageInput');
+            const messageText = input.value.trim();
 
-    if (messageText) {
-        ws.send(messageText); 
-        input.value = ''; 
-    }
-});
+            if (messageText) {
+                ws.send(messageText);
+                input.value = '';
+            }
+        });
 
         document.getElementById('messageInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
