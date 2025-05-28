@@ -37,6 +37,56 @@ namespace Harmony.Migrations
                     b.ToTable("ChannelUser");
                 });
 
+            modelBuilder.Entity("TaskCraft.Entities.CallChat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChannelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsVideoEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChannelId");
+
+                    b.ToTable("CallChats");
+                });
+
+            modelBuilder.Entity("TaskCraft.Entities.CallChatParticipant", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CallChatId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("UserId", "CallChatId");
+
+                    b.HasIndex("CallChatId");
+
+                    b.ToTable("CallChatParticipant");
+                });
+
             modelBuilder.Entity("TaskCraft.Entities.Channel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -157,6 +207,28 @@ namespace Harmony.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("TaskCraft.Entities.CallChat", b =>
+                {
+                    b.HasOne("TaskCraft.Entities.Channel", "Channel")
+                        .WithMany("CallChats")
+                        .HasForeignKey("ChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Channel");
+                });
+
+            modelBuilder.Entity("TaskCraft.Entities.CallChatParticipant", b =>
+                {
+                    b.HasOne("TaskCraft.Entities.CallChat", "CallChat")
+                        .WithMany("Participants")
+                        .HasForeignKey("CallChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CallChat");
+                });
+
             modelBuilder.Entity("TaskCraft.Entities.Channel", b =>
                 {
                     b.HasOne("TaskCraft.Entities.User", "Owner")
@@ -198,8 +270,15 @@ namespace Harmony.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TaskCraft.Entities.CallChat", b =>
+                {
+                    b.Navigation("Participants");
+                });
+
             modelBuilder.Entity("TaskCraft.Entities.Channel", b =>
                 {
+                    b.Navigation("CallChats");
+
                     b.Navigation("Chats");
                 });
 

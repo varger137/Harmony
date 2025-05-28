@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Chat Room</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Комната чата</title>
     <link rel="stylesheet" href="../styles.css"> 
 </head>
 <body>
@@ -9,14 +11,13 @@
         <h1>Chat Room <span id="chatId"></span></h1>
         <div id="chat" class="card"></div>
         <div class="nav-buttons">
-            <input type="text" id="messageInput" placeholder="Type your message...">
+            <input type="text" id="messageInput" placeholder="Введите сообщение...">
             <button id="sendButton">Отправить</button>
             <p><button onclick="window.location.href='../ChannelFr/get_channel.html?id=' + channelId">Назад к проекту</button></p>
         </div>
     </div>
 
-    <script type="module">
-        import { baseUrl } from './config.js';
+    <script>
 
         const token = localStorage.getItem('token');
 
@@ -32,7 +33,7 @@
 
         async function getNickName() {
             try {
-                const response = await fetch(`${baseUrl}/users/account`, {
+                const response = await fetch(`/users/account`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -54,7 +55,7 @@
 
         async function loadMessages() {
             try {
-                const response = await fetch(`${baseUrl}/channels/${channelId}/chats/${chatId}/messages`, {
+                const response = await fetch(`/channels/${channelId}/chats/${chatId}/messages`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -89,7 +90,7 @@
             }
         }
 
-        const ws = new WebSocket(`ws://100.121.109.45:5091/ws/chat/${chatId}?token=${token}`);
+        const ws = new WebSocket(`wss://188.16.19.243:5091/ws/chat/${chatId}?token=${token}`);
 
         ws.onopen = async () => {
             console.log('WebSocket connection established');

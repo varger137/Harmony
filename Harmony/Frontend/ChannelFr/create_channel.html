@@ -21,8 +21,7 @@
         </form>
     </div>
 
-    <script type="module">
-        import { baseUrl } from './config.js';
+    <script>
         const token = localStorage.getItem('token');
 
         if (!token) {
@@ -38,7 +37,7 @@
                 description: document.getElementById('description').value
             };
 
-            const response = await fetch(`${baseUrl}/channels/create`, {
+            const response = await fetch(`/channels/create`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

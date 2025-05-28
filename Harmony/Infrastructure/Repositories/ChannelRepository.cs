@@ -23,6 +23,7 @@ namespace TaskCraft.Repositories
         {
             var channel = await _context.Channels
                 .Include(p => p.Chats)
+                .Include(p => p.CallChats) 
                 .Include(p => p.Users)
                 .FirstOrDefaultAsync(p => p.Id == id);
 

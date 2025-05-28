@@ -19,8 +19,7 @@
         </form>
     </div>
 
-    <script type="module">
-        import { baseUrl } from './config.js';
+    <script>
         const token = localStorage.getItem('token');
         const urlParams = new URLSearchParams(window.location.search);
         const channelId = urlParams.get('channelId');
@@ -48,7 +47,7 @@
                 name: document.getElementById('name').value
             };
 
-            const response = await fetch(`${baseUrl}/channels/${channelId}/chats/create`, {
+            const response = await fetch(`/channels/${channelId}/chats/create`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -18,15 +18,15 @@
         </form>
         <pre id="result"></pre>
     </div>
-    <script type="module">
-        import { baseUrl } from './config.js';
+    <script>
+
 
         document.getElementById('getUserForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const userId = document.getElementById('userId').value;
 
-            const response = await fetch(`${baseUrl}/users/${userId}`);
+            const response = await fetch(`/users/${userId}`);
             const result = await response.json();
             document.getElementById('result').textContent = JSON.stringify(result, null, 2);
         });

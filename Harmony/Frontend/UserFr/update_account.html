@@ -24,8 +24,7 @@
         <div id="result"></div>
     </div>
 
-    <script type="module">
-        import { baseUrl } from './config.js';
+    <script>
         function parseJwt(token) {
             const base64Url = token.split('.')[1];
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -51,7 +50,7 @@
             const userId = decodedToken['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'];
 
 
-                const response = await fetch(`${baseUrl}/users/put/${userId}`, {
+                const response = await fetch(`/users/put/${userId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',

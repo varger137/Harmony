@@ -24,8 +24,8 @@
         <pre id="result"></pre>
     </div>
 
-    <script type="module">
-        import { baseUrl } from './config.js';
+    <script>
+
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -33,7 +33,7 @@
             const password = document.getElementById('password').value;
             const nickName = document.getElementById('nickName').value;
 
-            const response = await fetch(`${baseUrl}/users/register`, {
+            const response = await fetch(`/users/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

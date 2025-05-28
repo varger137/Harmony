@@ -9,7 +9,7 @@ namespace TaskCraft.DataBase
         public DbSet<Chat> Chats { get; set; }
         public DbSet<Message> Messages { get; set; }
         public DbSet<Channel> Channels { get; set; }
-
+        public DbSet<CallChat> CallChats { get; set; }
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
@@ -57,6 +57,22 @@ namespace TaskCraft.DataBase
                 .OnDelete(DeleteBehavior.Cascade); 
 
 
+             modelBuilder.Entity<CallChat>(entity =>
+    {
+        entity.HasOne(c => c.Channel)
+            .WithMany(c => c.CallChats)
+            .HasForeignKey(c => c.ChannelId)
+            .OnDelete(DeleteBehavior.Cascade);
+    });
+    
+    modelBuilder.Entity<CallChatParticipant>()
+        .HasKey(cp => new { cp.UserId, cp.CallChatId });
+
+    modelBuilder.Entity<CallChatParticipant>()
+        .HasOne(cp => cp.CallChat)
+        .WithMany(c => c.Participants)
+        .HasForeignKey(cp => cp.CallChatId)
+        .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Изменить чат звонка</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Изменить чат звонка</h1>
+        <form id="updateCallChatForm">
+            <label for="name">Название:</label>
+            <input type="text" id="name" required><br>
+            <label>
+                <input type="checkbox" id="isVideoEnabled"> Включить видео
+            </label><br>
+            <div class="nav-buttons">
+                <button type="submit">Сохранить изменения</button>
+                <button onclick="window.location.href='../ChannelFr/get_channel.html?id=${channelId}'">Назад к каналу</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        const urlParams = new URLSearchParams(window.location.search);
+        const callChatId = urlParams.get('callChatId');
+        const channelId = urlParams.get('channelId');
+
+        if (!token) {
+            alert('Сначала войдите в систему');
+            window.location.href = '../UserFr/login_user.html';
+        }
+
+        // Загружаем данные чата звонка
+        async function loadCallChat() {
+            const response = await fetch(`/channels/${channelId}/call-chats/${callChatId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const callChat = await response.json();
+                document.getElementById('name').value = callChat.name;
+                document.getElementById('isVideoEnabled').checked = callChat.isVideoEnabled;
+            } else {
+                const error = await response.text();
+                alert(`Ошибка: ${error}`);
+            }
+        }
+
+        document.getElementById('updateCallChatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const callChatData = {
+                name: document.getElementById('name').value,
+                isVideoEnabled: document.getElementById('isVideoEnabled').checked
+            };
+
+            const response = await fetch(`/channels/${channelId}/call-chats/put/${callChatId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(callChatData)
+            });
+
+            if (response.ok) {
+                alert('Чат звонка успешно обновлен!');
+                window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
+            } else {
+                const error = await response.text();
+                alert(`Ошибка: ${error}`);
+            }
+        });
+
+        loadCallChat();
+    </script>
+</body>
+</html>

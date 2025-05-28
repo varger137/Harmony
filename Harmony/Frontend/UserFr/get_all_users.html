@@ -15,10 +15,10 @@
         <pre id="result"></pre>
     </div>
 
-    <script type="module">
-        import { baseUrl } from './config.js';
+    <script>
+
         async function getAllUsers() {
-            const response = await fetch(`${baseUrl}/users`);
+            const response = await fetch(`/users`);
             const result = await response.json();
             document.getElementById('result').textContent = JSON.stringify(result, null, 2);
         }

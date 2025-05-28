@@ -20,8 +20,8 @@
         </div>
     </div>
 
-    <script type="module">
-        import { baseUrl } from './config.js';
+    <script>
+
         getAccount()
 
         async function checkAuth() {
@@ -31,7 +31,7 @@
                 return;
             }
 
-            const response = await fetch(`${baseUrl}/users/account`, {
+            const response = await fetch(`/users/account`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -76,7 +76,7 @@
                 return;
             }
 
-            const response = await fetch(`${baseUrl}/users/account`, {
+            const response = await fetch(`/users/account`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -107,7 +107,7 @@
             }
 
 
-            const accountResponse = await fetch(`${baseUrl}/users/account`, {
+            const accountResponse = await fetch(`/users/account`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -116,7 +116,7 @@
             const account = await accountResponse.json();
 
             if (confirm("Вы уверены, что хотите удалить свою учетную запись? Это действие невозможно отменить!")) {
-                const response = await fetch(`${baseUrl}/users/delete/${account.id}`, {
+                const response = await fetch(`/users/delete/${account.id}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${token}`

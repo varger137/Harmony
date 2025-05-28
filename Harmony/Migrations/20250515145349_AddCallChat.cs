@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Harmony.Migrations
 {
     /// <inheritdoc />
-    public partial class MigrationName : Migration
+    public partial class AddCallChat : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -44,6 +44,30 @@ namespace Harmony.Migrations
                         principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CallChats",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    OwnerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChannelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    IsVideoEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    StartedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    EndedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CallChats", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_CallChats_Channels_ChannelId",
+                        column: x => x.ChannelId,
+                        principalTable: "Channels",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -92,6 +116,24 @@ namespace Harmony.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "CallChatParticipant",
+                columns: table => new
+                {
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CallChatId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CallChatParticipant", x => new { x.UserId, x.CallChatId });
+                    table.ForeignKey(
+                        name: "FK_CallChatParticipant_CallChats_CallChatId",
+                        column: x => x.CallChatId,
+                        principalTable: "CallChats",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Messages",
                 columns: table => new
                 {
@@ -117,6 +159,16 @@ namespace Harmony.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CallChatParticipant_CallChatId",
+                table: "CallChatParticipant",
+                column: "CallChatId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CallChats_ChannelId",
+                table: "CallChats",
+                column: "ChannelId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Channels_OwnerId",
@@ -148,10 +200,16 @@ namespace Harmony.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "CallChatParticipant");
+
+            migrationBuilder.DropTable(
                 name: "ChannelUser");
 
             migrationBuilder.DropTable(
                 name: "Messages");
+
+            migrationBuilder.DropTable(
+                name: "CallChats");
 
             migrationBuilder.DropTable(
                 name: "Chats");

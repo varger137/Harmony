@@ -8,6 +8,7 @@ public class Channel
     public User Owner {get; set; }
     public DateTime CreatedAt { get; set; } 
     public List<Chat> ?Chats { get; set; } = new List<Chat>();
+    public List<CallChat> ?CallChats { get; set; } = new List<CallChat>();
     public List<User> Users { get; set; } = new List<User>();
 
 }

@@ -8,6 +8,7 @@ public class GetChannelDTO
     public string? Description { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<GetChatDTO>? Chats { get; set; }
+    public List<GetCallChatDTO>? CallChats { get; set; }
     public List<string>? ChatNames { get; set; }
     public List<GetUserDTO> Users { get; set; }
     public Guid OwnerId { get; set; }

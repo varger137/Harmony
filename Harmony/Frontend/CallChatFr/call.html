@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Звонок</title>
+    <link rel="stylesheet" href="../styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>Звонок <span id="callChatId"></span></h1>
+    <div id="videoContainer">
+        <div class="video-wrapper">
+            <video id="localVideo" autoplay muted playsinline></video>
+            <div class="camera-placeholder" id="localCameraPlaceholder">Камера выключена</div>
+        </div>
+    </div>
+    <div class="nav-buttons">
+<button id="micButton" onclick="toggleMic()">Микрофон включен</button>
+<button id="cameraButton" onclick="toggleCamera()">Камера включена</button>
+
+        <button onclick="toggleScreenShare()">Демонстрация экрана</button>
+        <button onclick="endCall()">Завершить</button>
+    </div>
+</div>
+
+<script>
+const token = localStorage.getItem('token');
+const urlParams = new URLSearchParams(window.location.search);
+const callChatId = urlParams.get('callChatId');
+const channelId = urlParams.get('channelId');
+
+if (!token) {
+    alert('Сначала войдите в систему');
+    window.location.href = '../UserFr/login_user.html';
+}
+
+document.getElementById('callChatId').textContent = callChatId;
+
+let localStream = null;
+let screenStream = null;
+let isMicOn = false;
+let isCameraOn = false;
+let isScreenSharing = false;
+let ownConnectionId = null;
+
+const peers = new Map();
+const participants = new Map();
+const cameraStates = new Map();
+const screenSharingStates = new Map();
+const pendingCameraStates = new Map();
+const pendingScreenSharingStates = new Map();
+
+const connection = new signalR.HubConnectionBuilder()
+    .withUrl(`https://188.16.19.243:5091/hubs/callChat?callChatId=${callChatId}&token=${token}`)
+    .withAutomaticReconnect()
+    .build();
+
+connection.on("ReceiveSignal", async (message) => {
+    const signal = JSON.parse(message);
+    const senderId = signal.senderId;
+
+    // Не обрабатываем сигнал, отправленный самим себе (кроме joined)
+    if (senderId === ownConnectionId && !signal.joined) return;
+
+    if (signal.left) {
+        removeParticipant(senderId);
+        return;
+    }
+
+    if (signal.cameraState !== undefined) {
+        cameraStates.set(senderId, signal.cameraState);
+        const videoElement = participants.get(senderId);
+        if (!videoElement) {
+            pendingCameraStates.set(senderId, signal.cameraState);
+            return;
+        }
+        updateCameraPlaceholder(senderId);
+        return;
+    }
+
+    if (signal.screenSharing !== undefined) {
+        screenSharingStates.set(senderId, signal.screenSharing);
+        const videoElement = participants.get(senderId);
+        if (!videoElement) {
+            pendingScreenSharingStates.set(senderId, signal.screenSharing);
+            return;
+        }
+        updateCameraPlaceholder(senderId);
+        return;
+    }
+
+    if (signal.candidate) {
+        if (!peers.has(senderId)) await createPeerConnection(senderId);
+        const peer = peers.get(senderId);
+        if (peer.pc.remoteDescription?.type) {
+            try {
+                await peer.pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            } catch (err) {
+                console.error("Ошибка добавления ICE:", err);
+            }
+        } else {
+            peer.iceQueue.push(signal.candidate);
+        }
+        return;
+    }
+
+    if (signal.offer) {
+        if (!peers.has(senderId)) await createPeerConnection(senderId);
+        const peer = peers.get(senderId);
+        await peer.pc.setRemoteDescription(new RTCSessionDescription(signal.offer));
+        await drainIceQueue(peer);
+        const answer = await peer.pc.createAnswer();
+        await peer.pc.setLocalDescription(answer);
+        sendSignal(senderId, { answer });
+        return;
+    }
+
+    if (signal.answer) {
+        const peer = peers.get(senderId);
+        if (peer?.pc.signalingState === 'have-local-offer' || peer.pc.signalingState === 'stable') {
+            await peer.pc.setRemoteDescription(new RTCSessionDescription(signal.answer));
+            await drainIceQueue(peer);
+        }
+        return;
+    }
+
+    if (signal.joined) {
+        if (!peers.has(senderId)) {
+            await createPeerConnection(senderId);
+            const pc = peers.get(senderId).pc;
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            sendSignal(senderId, { offer });
+
+            // Отправляем текущие состояния
+            sendSignal(senderId, {
+                cameraState: isCameraOn,
+                screenSharing: isScreenSharing,
+                senderId: ownConnectionId
+            });
+        }
+    }
+});
+
+connection.on("UserJoined", async (connectionId) => {
+    if (connectionId !== ownConnectionId && !peers.has(connectionId)) {
+        await createPeerConnection(connectionId);
+        sendSignal(connectionId, {
+            cameraState: isCameraOn,
+            screenSharing: isScreenSharing,
+            senderId: ownConnectionId
+        });
+    }
+});
+
+
+connection.on("UserJoined", async (connectionId) => {
+    if (connectionId !== ownConnectionId && !peers.has(connectionId)) {
+        await createPeerConnection(connectionId);
+        sendSignal(connectionId, {
+            cameraState: isCameraOn,
+            screenSharing: isScreenSharing
+        });
+    }
+});
+
+connection.on("UserLeft", (connectionId) => {
+    removeParticipant(connectionId);
+});
+
+async function start() {
+    await connection.start();
+    ownConnectionId = connection.connectionId;
+    await initializeCamera();
+
+    await connection.invoke("SendSignal", JSON.stringify({
+        joined: true,
+        senderId: ownConnectionId
+    }));
+
+    for (const participantId of peers.keys()) {
+        sendSignal(participantId, {
+            cameraState: isCameraOn,
+            screenSharing: isScreenSharing
+        });
+    }
+}
+
+async function initializeCamera() {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+        // Отключаем сразу
+        localStream.getAudioTracks().forEach(track => track.enabled = false);
+        localStream.getVideoTracks().forEach(track => track.enabled = false);
+
+        const video = document.getElementById('localVideo');
+        video.srcObject = localStream;
+
+        // Показываем плейсхолдер камеры, скрываем видео
+        document.getElementById('localCameraPlaceholder').style.display = 'flex';
+        video.style.display = 'none';
+
+        // Обновляем кнопки в UI
+        document.getElementById('micButton').textContent = 'Микрофон выключен';
+        document.getElementById('cameraButton').textContent = 'Камера выключена';
+    } catch (e) {
+        console.error("Ошибка камеры:", e);
+    }
+}
+
+
+async function createPeerConnection(remoteId) {
+    const pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    });
+
+    const iceQueue = [];
+
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            sendSignal(remoteId, { candidate: event.candidate });
+        }
+    };
+
+    pc.ontrack = (event) => {
+        const stream = event.streams[0];
+
+        if (!participants.has(remoteId)) {
+    const videoWrapper = document.createElement('div');
+    videoWrapper.className = 'video-wrapper';
+
+    const video = document.createElement('video');
+    video.id = `remoteVideo_${remoteId}`;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+
+    const placeholder = document.createElement('div');
+    placeholder.className = 'camera-placeholder';
+    placeholder.textContent = 'Камера выключена';
+
+    videoWrapper.appendChild(video);
+    videoWrapper.appendChild(placeholder);
+    document.getElementById('videoContainer').appendChild(videoWrapper);
+
+    participants.set(remoteId, video);
+
+    // Применяем состояния камеры/демонстрации экрана, если были отложены
+    if (pendingCameraStates.has(remoteId)) {
+        cameraStates.set(remoteId, pendingCameraStates.get(remoteId));
+        pendingCameraStates.delete(remoteId);
+    }
+
+    if (pendingScreenSharingStates.has(remoteId)) {
+        screenSharingStates.set(remoteId, pendingScreenSharingStates.get(remoteId));
+        pendingScreenSharingStates.delete(remoteId);
+    }
+
+    updateCameraPlaceholder(remoteId);
+}else {
+            const video = participants.get(remoteId);
+            video.srcObject = stream;
+            updateCameraPlaceholder(remoteId);
+        }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+        if (["disconnected", "failed", "closed"].includes(pc.iceConnectionState)) {
+            removeParticipant(remoteId);
+        }
+    };
+
+let streamToSend;
+
+if (isScreenSharing && document.getElementById('localVideo').srcObject) {
+    streamToSend = document.getElementById('localVideo').srcObject;
+} else {
+    streamToSend = localStream;
+}
+
+if (streamToSend) {
+    for (const track of streamToSend.getTracks()) {
+        pc.addTrack(track, streamToSend);
+    }
+}
+
+
+    peers.set(remoteId, { pc, iceQueue });
+
+    pc.addEventListener('signalingstatechange', () => {
+        const peer = peers.get(remoteId);
+        if (peer && pc.remoteDescription && pc.remoteDescription.type) {
+            drainIceQueue(peer);
+        }
+    });
+
+    return pc;
+}
+
+async function drainIceQueue(peer) {
+    while (peer.iceQueue.length > 0) {
+        const candidate = peer.iceQueue.shift();
+        try {
+            await peer.pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+            console.error("Ошибка ICE:", err);
+        }
+    }
+}
+
+function sendSignal(receiverId, signal) {
+    signal.senderId = ownConnectionId;
+    signal.receiverId = receiverId;
+    connection.invoke("SendSignal", JSON.stringify(signal)).catch(console.error);
+}
+
+function toggleMic() {
+    isMicOn = !isMicOn;
+    if (localStream) {
+        localStream.getAudioTracks().forEach(track => track.enabled = isMicOn);
+    }
+
+    const micButton = document.getElementById('micButton');
+    micButton.textContent = isMicOn ? 'Микрофон включен' : 'Микрофон выключен';
+}
+
+function toggleCamera() {
+    isCameraOn = !isCameraOn;
+    if (localStream) {
+        localStream.getVideoTracks().forEach(track => track.enabled = isCameraOn);
+    }
+
+    document.getElementById('localCameraPlaceholder').style.display = isCameraOn ? 'none' : 'flex';
+    document.getElementById('localVideo').style.display = isCameraOn ? 'block' : 'none';
+
+    const cameraButton = document.getElementById('cameraButton');
+    cameraButton.textContent = isCameraOn ? 'Камера включена' : 'Камера выключена';
+
+    for (const participantId of peers.keys()) {
+        sendSignal(participantId, {
+            cameraState: isCameraOn,
+            senderId: ownConnectionId
+        });
+    }
+}
+
+function updateCameraPlaceholder(connectionId) {
+    const videoElement = participants.get(connectionId);
+    if (!videoElement) return;
+
+    const wrapper = videoElement.parentElement;
+    const placeholder = wrapper.querySelector('.camera-placeholder');
+    const cameraState = cameraStates.get(connectionId);
+
+    // Если состояние камеры не определено, считаем, что камера выключена (для безопасности)
+    const cameraOn = cameraState === undefined ? false : cameraState;
+
+    if (cameraOn) {
+        videoElement.style.display = 'block';
+        placeholder.style.display = 'none';
+    } else {
+        videoElement.style.display = 'none';
+        placeholder.style.display = 'flex';
+    }
+}
+
+
+function removeParticipant(id) {
+    if (participants.has(id)) {
+        const video = participants.get(id);
+        const wrapper = video.parentElement;
+        if (wrapper && wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
+        participants.delete(id);
+    }
+
+    if (peers.has(id)) {
+        peers.get(id).pc.close();
+        peers.delete(id);
+    }
+
+    cameraStates.delete(id);
+    screenSharingStates.delete(id);
+    pendingCameraStates.delete(id);
+    pendingScreenSharingStates.delete(id);
+}
+
+async function endCall() {
+    if (screenStream) stopScreenShare();
+    for (const [id, { pc }] of peers.entries()) {
+        pc.close();
+        peers.delete(id);
+    }
+
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+
+    await connection.invoke("SendSignal", JSON.stringify({
+        left: true,
+        senderId: ownConnectionId
+    }));
+
+    await connection.stop();
+
+    window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
+}
+
+window.onload = start;
+
+window.addEventListener('beforeunload', async () => {
+    if (screenStream) stopScreenShare();
+    if (connection && connection.state === signalR.HubConnectionState.Connected) {
+        try {
+            await connection.invoke("SendSignal", JSON.stringify({ left: true, senderId: ownConnectionId }));
+            await connection.stop();
+        } catch (err) {
+            console.error(err);
+        }
+    }
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+});
+
+async function toggleScreenShare() {
+    if (isScreenSharing) {
+        stopScreenShare();
+    } else {
+        await startScreenShare();
+    }
+}
+
+async function startScreenShare() {
+    try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+
+        if (!localStream) {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            document.getElementById('localVideo').srcObject = localStream;
+        }
+
+        const audioContext = new AudioContext();
+        const destination = audioContext.createMediaStreamDestination();
+
+        // Добавляем микрофон
+        const micAudioSource = audioContext.createMediaStreamSource(localStream);
+        micAudioSource.connect(destination);
+
+        // Проверяем наличие аудио у демонстрации экрана
+        const screenAudioTracks = screenStream.getAudioTracks();
+        if (screenAudioTracks.length > 0) {
+            const screenAudioSource = audioContext.createMediaStreamSource(new MediaStream([screenAudioTracks[0]]));
+            screenAudioSource.connect(destination);
+        }
+
+        const combinedStream = new MediaStream();
+
+        // Добавляем видео с экрана
+        screenStream.getVideoTracks().forEach(track => combinedStream.addTrack(track));
+
+        // Добавляем смешанный аудио трек
+        if (destination.stream.getAudioTracks().length > 0) {
+            combinedStream.addTrack(destination.stream.getAudioTracks()[0]);
+        }
+
+        document.getElementById('localVideo').srcObject = combinedStream;
+
+        // Обновляем треки в отправке peer-соединений
+        for (const [id, { pc }] of peers.entries()) {
+            const videoSender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+            if (videoSender) videoSender.replaceTrack(screenStream.getVideoTracks()[0]);
+
+            const audioSender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+            const newAudioTrack = destination.stream.getAudioTracks()[0];
+            if (audioSender && newAudioTrack) audioSender.replaceTrack(newAudioTrack);
+        }
+
+        isScreenSharing = true;
+
+        for (const participantId of peers.keys()) {
+            sendSignal(participantId, {
+                screenSharing: true,
+                senderId: ownConnectionId
+            });
+        }
+
+        document.querySelector('button[onclick="toggleScreenShare()"]').textContent = 'Остановить демонстрацию';
+
+    } catch (err) {
+        console.error('Ошибка демонстрации экрана:', err);
+    }
+}
+
+
+
+function stopScreenShare() {
+    if (localStream) {
+        for (const [id, { pc }] of peers.entries()) {
+            const sender = pc.getSenders().find(s => s.track.kind === 'video');
+            if (sender) sender.replaceTrack(localStream.getVideoTracks()[0]);
+        }
+        document.getElementById('localVideo').srcObject = localStream;
+    }
+
+    if (screenStream) {
+        screenStream.getTracks().forEach(track => track.stop());
+        screenStream = null;
+    }
+
+    isScreenSharing = false;
+
+    for (const participantId of peers.keys()) {
+        sendSignal(participantId, {
+            screenSharing: false,
+            senderId: ownConnectionId
+        });
+    }
+
+    document.querySelector('button[onclick="toggleScreenShare()"]').textContent = 'Демонстрация экрана';
+}
+</script>
+</body>
+</html>

@@ -11,12 +11,13 @@
     <div id="channelInfo" class="card"></div>
     
     <div class="nav-buttons">
-        <p>Работа с пректом:
+        <p>Работа с проектом:
             <button id="updateChannelButton">Изменить канал</button>
             <button id="confirmDelete">Удалить канал</button>
         </p>
         <p>Работа с чатами:
-            <button id="createChatButton">Создать чат</button> 
+            <button id="createChatButton">Создать чат</button>
+            <button id="createCallChatButton">Создать чат звонка</button>
         </p>
 
         <br>
@@ -26,11 +27,9 @@
         <br>
         <button onclick="window.location.href='get_all_channels.html'">Назад к списку каналов</button>
         <button onclick="window.location.href='../UserFr/get_account.html'">Вернуться в профиль</button>
-        
     </div>
     
-    <script type="module">
-        import { baseUrl } from './config.js';
+    <script>
         const token = localStorage.getItem('token');
         const urlParams = new URLSearchParams(window.location.search);
         const channelId = urlParams.get('id');
@@ -41,12 +40,11 @@
         }
 
         document.getElementById('copyJoinLink').addEventListener('click', () => {
-        const joinLinkInput = document.getElementById('joinLink');
-        joinLinkInput.select();
-        document.execCommand('copy');
-        alert('ID скопирован: ' + joinLinkInput.value);
-    });
-
+            const joinLinkInput = document.getElementById('joinLink');
+            joinLinkInput.select();
+            document.execCommand('copy');
+            alert('ID скопирован: ' + joinLinkInput.value);
+        });
 
         const updateChannelButton = document.getElementById('updateChannelButton');
         if (channelId) {
@@ -57,6 +55,7 @@
         } else {
             alert('Ошибка: ID канала не найден');
         }
+
         const createChatButton = document.getElementById('createChatButton');
         if (channelId) {
             createChatButton.addEventListener('click', () => {
@@ -66,10 +65,18 @@
             alert('Ошибка: ID канала не найден');
         }
 
+        const createCallChatButton = document.getElementById('createCallChatButton');
+        if (channelId) {
+            createCallChatButton.addEventListener('click', () => {
+                window.location.href = `../CallChatFr/create_callchat.html?channelId=${channelId}`;
+            });
+        } else {
+            alert('Ошибка: ID канала не найден');
+        }
 
         document.getElementById('confirmDelete').addEventListener('click', async () => {
             if (confirm("Вы уверены, что хотите удалить этот канал? Это действие невозможно отменить!")) {
-                const response = await fetch(`${baseUrl}/channels/delete/${channelId}`, {
+                const response = await fetch(`/channels/delete/${channelId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -85,39 +92,71 @@
                 }
             }
         });
+
         async function deleteChat(chatId, channelId) {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            alert('Сначала войдите в систему');
-            window.location.href = '../UserFr/login_user.html';
-            return;
-        }
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Сначала войдите в систему');
+                window.location.href = '../UserFr/login_user.html';
+                return;
+            }
 
-        if (confirm("Вы уверены, что хотите удалить этот чат? Это действие невозможно отменить!")) {
-            try {
-                const response = await fetch(`${baseUrl}/channels/${channelId}/chats/delete/${chatId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
+            if (confirm("Вы уверены, что хотите удалить этот чат? Это действие невозможно отменить!")) {
+                try {
+                    const response = await fetch(`/channels/${channelId}/chats/delete/${chatId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        alert('Чат успешно удален!');
+                        window.location.reload();
+                    } else {
+                        const error = await response.text();
+                        alert(`Ошибка: ${error}`);
                     }
-                });
-
-                if (response.ok) {
-                    alert('Чат успешно удален!');
-                    window.location.reload(); 
-                } else {
-                    const error = await response.text();
-                    alert(`Ошибка: ${error}`);
+                } catch (error) {
+                    console.error('Ошибка при удалении чата:', error);
+                    alert('Произошла ошибка при удалении чата');
                 }
-            } catch (error) {
-                console.error('Ошибка при удалении чата:', error);
-                alert('Произошла ошибка при удалении чата');
             }
         }
-    }
-    
+
+        async function deleteCallChat(callChatId, channelId) {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Сначала войдите в систему');
+                window.location.href = '../UserFr/login_user.html';
+                return;
+            }
+
+            if (confirm("Вы уверены, что хотите удалить этот чат звонка? Это действие невозможно отменить!")) {
+                try {
+                    const response = await fetch(`/channels/${channelId}/call-chats/delete/${callChatId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        alert('Чат звонка успешно удален!');
+                        window.location.reload();
+                    } else {
+                        const error = await response.text();
+                        alert(`Ошибка: ${error}`);
+                    }
+                } catch (error) {
+                    console.error('Ошибка при удалении чата звонка:', error);
+                    alert('Произошла ошибка при удалении чата звонка');
+                }
+            }
+        }
+
         async function loadChannel() {
-            const response = await fetch(`${baseUrl}/channels/${channelId}`, {
+            const response = await fetch(`/channels/${channelId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -129,7 +168,6 @@
                 return;
             }
 
-
             if (response.ok) {
                 const channel = await response.json();
                 const channelInfo = document.getElementById('channelInfo');
@@ -140,22 +178,30 @@
                     <p>Создатель: ${channel.ownerNickName}</p>
                     <p>Дата создания: ${new Date(channel.createdAt).toLocaleDateString()}</p>
                     
-                    
-                    
                     <h3>Чаты:</h3>
                     ${channel.chats?.length > 0 ? 
-                        `<ul>${channel.chats.map(chat => `<li>${chat.name}<button onclick="window.location.href='../ChatFr/chat.html?chatId=${chat.id}&channelId=${channel.id}'">Войти в чат</button>
-                                                                          <button onclick="window.location.href='../ChatFr/update_chat.html?chatId=${chat.id}&channelId=${channel.id}'">Изменить</button>
-                                                                          <button onclick="deleteChat('${chat.id}', '${channel.id}')">Удалить</button></li>`).join('')}</ul>` : 
+                        `<ul>${channel.chats.map(chat => `<li>${chat.name}
+                            <button onclick="window.location.href='../ChatFr/chat.html?chatId=${chat.id}&channelId=${channel.id}'">Войти в чат</button>
+                            <button onclick="window.location.href='../ChatFr/update_chat.html?chatId=${chat.id}&channelId=${channel.id}'">Изменить</button>
+                            <button onclick="deleteChat('${chat.id}', '${channel.id}')">Удалить</button>
+                        </li>`).join('')}</ul>` : 
                         '<p>Нет чатов</p>'
-                        }
+                    }
+
+                    <h3>Чаты звонков:</h3>
+                    ${channel.callChats?.length > 0 ? 
+                        `<ul>${channel.callChats.map(callChat => `<li>${callChat.name} (Видео: ${callChat.isVideoEnabled ? 'Включено' : 'Выключено'})
+                            <button onclick="window.location.href='../CallChatFr/call.html?callChatId=${callChat.id}&channelId=${channel.id}'">
+                                Присоединиться
+                            </button>
+                            <button onclick="window.location.href='../CallChatFr/update_callchat.html?callChatId=${callChat.id}&channelId=${channel.id}'">Изменить</button>
+                            <button onclick="deleteCallChat('${callChat.id}', '${channel.id}')">Удалить</button>
+                        </li>`).join('')}</ul>` : 
+                        '<p>Нет чатов звонков</p>'
+                    }
                 `;
 
-
-                
-
-
-                    document.getElementById('joinLink').value = `${channelId}`;
+                document.getElementById('joinLink').value = `${channelId}`;
             } else {
                 alert('Ошибка при загрузке канала');
             }

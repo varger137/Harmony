@@ -12,10 +12,20 @@ using System.Text;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.SignalR;
 
 #region Builder
-    
+
 var builder = WebApplication.CreateBuilder();
+
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenAnyIP(5091, listenOptions => 
+    {
+        listenOptions.UseHttps(); 
+    });
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -23,6 +33,7 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
+
     });
 });
 builder.Services.AddAutoMapper(typeof(Program));
@@ -34,6 +45,7 @@ builder.Services.AddScoped<UserRepository>();
 builder.Services.AddScoped<ChannelRepository>();
 builder.Services.AddScoped<ChatRepository>();
 builder.Services.AddScoped<MessageRepository>();
+builder.Services.AddScoped<CallChatRepository>();
 
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
@@ -45,14 +57,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         IssuerSigningKey = AuthOptions.GetSymmetricSecurityKey(),
         ValidateIssuerSigningKey = true,
     });
+
+// Добавляем SignalR
+builder.Services.AddSignalR();
 #endregion
 
 #region App
-    
+
 
 var app = builder.Build();
+app.UseHttpsRedirection();
 app.UseCors("AllowAll");
-app.UseWebSockets();
+// Можно удалить, если больше не используете прямые WebSocket
+// app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
 #endregion
@@ -167,57 +184,11 @@ app.Map("/ws/chat/{chatId}", async context =>
     }
 });
 
-var callRooms = new ConcurrentDictionary<string, List<WebSocket>>();
 
-app.Map("/ws/call/{roomId}", async context =>
-{
-    if (context.WebSockets.IsWebSocketRequest)
-    {
-        using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        var roomId = context.Request.RouteValues["roomId"]?.ToString();
 
-        // Добавляем WebSocket в комнату
-        if (!callRooms.ContainsKey(roomId))
-        {
-            callRooms[roomId] = new List<WebSocket>();
-        }
-        callRooms[roomId].Add(webSocket);
+// Маппинг хаба для звонков
+app.MapHub<Harmony.Hubs.CallChatHub>("/hubs/callChat");
 
-        var buffer = new byte[1024 * 4];
-
-        while (webSocket.State == WebSocketState.Open)
-        {
-            var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-
-            if (result.MessageType == WebSocketMessageType.Text)
-            {
-                var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-
-                // Пересылаем сообщение всем участникам комнаты, кроме отправителя
-                foreach (var socket in callRooms[roomId])
-                {
-                    if (socket != webSocket && socket.State == WebSocketState.Open)
-                    {
-                        await socket.SendAsync(new ArraySegment<byte>(buffer, 0, result.Count), WebSocketMessageType.Text, true, CancellationToken.None);
-                    }
-                }
-            }
-            else if (result.MessageType == WebSocketMessageType.Close)
-            {
-                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
-                callRooms[roomId].Remove(webSocket);
-                if (callRooms[roomId].Count == 0)
-                {
-                    callRooms.TryRemove(roomId, out _);
-                }
-            }
-        }
-    }
-    else
-    {
-        context.Response.StatusCode = StatusCodes.Status400BadRequest;
-    }
-});
 
 app.MapGet("/channels/{channelId}/chats/{chatId}/messages", [Authorize] async (
     MessageRepository messageRepository,
@@ -242,6 +213,7 @@ app.MapGet("/channels/{channelId}/chats/{chatId}/messages", [Authorize] async (
 
     return Results.Ok(messages);
 });
+
 #endregion
 
 #region UserEndPoints
@@ -556,4 +528,122 @@ app.MapDelete("/channels/{channelId}/chats/delete/{chatId}", [Authorize] async (
 });
 #endregion
 
-app.Run("http://0.0.0.0:5091");
+#region CallChatEndPoints
+app.MapPost("/channels/{channelId}/call-chats/create", [Authorize] async (
+    CallChatRepository callChatRepository,
+    ChannelRepository channelRepository,
+    HttpContext ctx,
+    Guid channelId,
+    CreateCallChatDTO callChatDto) =>
+{
+    if (callChatDto == null || string.IsNullOrWhiteSpace(callChatDto.Name))
+    {
+        return Results.BadRequest("Invalid call chat data");
+    }
+
+    var userId = Guid.Parse(ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+    var channel = await channelRepository.GetChannelById(channelId);
+    
+    if (channel == null)
+    {
+        return Results.NotFound("Channel not found");
+    }
+
+    if (channel.OwnerId != userId)
+    {
+        return Results.Forbid();
+    }
+
+    var callChatId = await callChatRepository.AddCallChat(callChatDto, userId, channelId);
+    return Results.Ok(new { CallChatId = callChatId, Message = "Call chat created successfully" });
+});
+
+app.MapGet("/channels/{channelId}/call-chats/{callChatId}", [Authorize] async (
+    CallChatRepository callChatRepository, 
+    ChannelRepository channelRepository, 
+    Guid channelId, 
+    Guid callChatId) =>
+{
+    var channel = await channelRepository.GetChannelById(channelId);
+    if (channel == null)
+    {
+        return Results.NotFound("Channel not found");
+    }
+
+    var callChat = await callChatRepository.GetCallChatByIdAsync(callChatId);
+    if (callChat == null || callChat.ChannelId != channelId)
+    {
+        return Results.NotFound("Call chat not found");
+    }
+
+    return Results.Ok(callChat);
+});
+
+app.MapPut("/channels/{channelId}/call-chats/put/{callChatId}", [Authorize] async (
+    CallChatRepository callChatRepository, 
+    ChannelRepository channelRepository, 
+    HttpContext ctx, 
+    Guid channelId, 
+    Guid callChatId, 
+    UpdateCallChatDTO callChatDto) =>
+{
+    if (callChatDto == null || string.IsNullOrWhiteSpace(callChatDto.Name))
+    {
+        return Results.BadRequest("Invalid call chat data");
+    }
+
+    var userId = Guid.Parse(ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+
+    var channel = await channelRepository.GetChannelById(channelId);
+    if (channel == null)
+    {
+        return Results.NotFound("Channel not found");
+    }
+
+    if (channel.OwnerId != userId)
+    {
+        return Results.Forbid();
+    }
+
+    var callChat = await callChatRepository.GetCallChatByIdAsync(callChatId);
+    if (callChat == null || callChat.ChannelId != channelId)
+    {
+        return Results.NotFound("Call chat not found");
+    }
+
+    var success = await callChatRepository.UpdateCallChat(callChatId, callChatDto);
+    return success ? Results.Ok("Call chat updated successfully") : Results.Problem("Failed to update call chat");
+});
+
+app.MapDelete("/channels/{channelId}/call-chats/delete/{callChatId}", [Authorize] async (
+    CallChatRepository callChatRepository, 
+    ChannelRepository channelRepository, 
+    HttpContext ctx, 
+    Guid channelId, 
+    Guid callChatId) =>
+{
+    var userId = Guid.Parse(ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+
+    var channel = await channelRepository.GetChannelById(channelId);
+    if (channel == null)
+    {
+        return Results.NotFound("Channel not found");
+    }
+
+    if (channel.OwnerId != userId)
+    {
+        return Results.Forbid();
+    }
+
+    var callChat = await callChatRepository.GetCallChatByIdAsync(callChatId);
+    if (callChat == null || callChat.ChannelId != channelId)
+    {
+        return Results.NotFound("Call chat not found");
+    }
+
+    var success = await callChatRepository.DeleteCallChat(callChatId);
+    return success ? Results.Ok("Call chat deleted successfully") : Results.Problem("Failed to delete call chat");
+});
+#endregion
+
+app.Run("https://0.0.0.0:5091");
