@@ -118,6 +118,7 @@ D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\Harmo
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\Harmony.AssemblyInfo.cs
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\Harmony.csproj.CoreCompileInputs.cache
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\Harmony.MvcApplicationPartsAssemblyInfo.cache
+D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\Harmony.sourcelink.json
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\staticwebassets.build.json
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\staticwebassets.development.json
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\staticwebassets\msbuild.Harmony.Microsoft.AspNetCore.StaticWebAssets.props
@@ -132,4 +133,3 @@ D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\refin
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\Harmony.pdb
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\Harmony.genruntimeconfig.cache
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\ref\Harmony.dll
-D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\Harmony.sourcelink.json

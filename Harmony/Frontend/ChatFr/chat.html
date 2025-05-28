@@ -15,8 +15,9 @@
         </div>
     </div>
 
-    <script>
-        const baseUrl = 'http://localhost:5091';
+    <script type="module">
+        import { baseUrl } from './config.js';
+
         const token = localStorage.getItem('token');
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -88,7 +89,7 @@
             }
         }
 
-        const ws = new WebSocket(`ws://localhost:5091/ws/chat/${chatId}?token=${token}`);
+        const ws = new WebSocket(`ws://100.121.109.45:5091/ws/chat/${chatId}?token=${token}`);
 
         ws.onopen = async () => {
             console.log('WebSocket connection established');

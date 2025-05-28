@@ -11,14 +11,25 @@ using Infrastructure.Auth;
 using System.Text;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Microsoft.Extensions.FileProviders;
 
-
+#region Builder
+    
 var builder = WebApplication.CreateBuilder();
-builder.Services.AddCors();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 builder.Services.AddAutoMapper(typeof(Program));
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
+    
 builder.Services.AddScoped<UserRepository>();
 builder.Services.AddScoped<ChannelRepository>();
 builder.Services.AddScoped<ChatRepository>();
@@ -34,14 +45,33 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         IssuerSigningKey = AuthOptions.GetSymmetricSecurityKey(),
         ValidateIssuerSigningKey = true,
     });
+#endregion
 
+#region App
+    
 
 var app = builder.Build();
-app.UseCors(o => o.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
+app.UseCors("AllowAll");
 app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
+#endregion
 
+#region Begin
+    app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(builder.Environment.ContentRootPath, "Frontend")),
+    RequestPath = ""
+});
+
+app.MapGet("/", async context =>
+{
+    var path = Path.Combine(Directory.GetCurrentDirectory(), "Frontend","UserFr", "login_user.html");
+    context.Response.ContentType = "text/html";
+    await context.Response.SendFileAsync(path);
+});
+#endregion
 
 #region ws
 var webSockets = new ConcurrentDictionary<Guid, WebSocket>();
@@ -137,6 +167,57 @@ app.Map("/ws/chat/{chatId}", async context =>
     }
 });
 
+var callRooms = new ConcurrentDictionary<string, List<WebSocket>>();
+
+app.Map("/ws/call/{roomId}", async context =>
+{
+    if (context.WebSockets.IsWebSocketRequest)
+    {
+        using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+        var roomId = context.Request.RouteValues["roomId"]?.ToString();
+
+        // Добавляем WebSocket в комнату
+        if (!callRooms.ContainsKey(roomId))
+        {
+            callRooms[roomId] = new List<WebSocket>();
+        }
+        callRooms[roomId].Add(webSocket);
+
+        var buffer = new byte[1024 * 4];
+
+        while (webSocket.State == WebSocketState.Open)
+        {
+            var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+
+            if (result.MessageType == WebSocketMessageType.Text)
+            {
+                var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+
+                // Пересылаем сообщение всем участникам комнаты, кроме отправителя
+                foreach (var socket in callRooms[roomId])
+                {
+                    if (socket != webSocket && socket.State == WebSocketState.Open)
+                    {
+                        await socket.SendAsync(new ArraySegment<byte>(buffer, 0, result.Count), WebSocketMessageType.Text, true, CancellationToken.None);
+                    }
+                }
+            }
+            else if (result.MessageType == WebSocketMessageType.Close)
+            {
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                callRooms[roomId].Remove(webSocket);
+                if (callRooms[roomId].Count == 0)
+                {
+                    callRooms.TryRemove(roomId, out _);
+                }
+            }
+        }
+    }
+    else
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+    }
+});
 
 app.MapGet("/channels/{channelId}/chats/{chatId}/messages", [Authorize] async (
     MessageRepository messageRepository,
@@ -235,6 +316,7 @@ app.MapDelete("/users/delete/{id}", [Authorize] async (HttpContext ctx, UserRepo
 });
 app.MapPost("/users/login", async (UserRepository userRepository, LoginUserDTO loginDto) =>
 {
+    
     if (loginDto == null || string.IsNullOrWhiteSpace(loginDto.Login) || string.IsNullOrWhiteSpace(loginDto.Password))
     {
         return Results.BadRequest("Invalid login data");
@@ -364,6 +446,7 @@ app.MapPost("/channels/{channelId}/join", [Authorize] async (ChannelRepository c
 #endregion
 
 #region ChatEndPoints
+
 app.MapPost("/channels/{channelId}/chats/create", [Authorize] async (ChatRepository chatRepository, ChannelRepository channelRepository, HttpContext ctx, Guid channelId, CreateChatDTO chatDto) =>
 {
     if (chatDto == null || string.IsNullOrWhiteSpace(chatDto.Name))
@@ -473,6 +556,4 @@ app.MapDelete("/channels/{channelId}/chats/delete/{chatId}", [Authorize] async (
 });
 #endregion
 
-
-
-app.Run();
+app.Run("http://0.0.0.0:5091");

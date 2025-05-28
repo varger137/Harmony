@@ -15,9 +15,8 @@
         <pre id="result"></pre>
     </div>
 
-    <script>
-        const baseUrl = 'http://localhost:5091'; 
-
+    <script type="module">
+        import { baseUrl } from './config.js';
         async function getAllUsers() {
             const response = await fetch(`${baseUrl}/users`);
             const result = await response.json();

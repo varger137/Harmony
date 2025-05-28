@@ -18,15 +18,14 @@
             <input type="text" id="nickName" required>
             <div class="nav-buttons">
                 <button type="submit">Регистрация</button>
-                <button onclick="window.location.href='login_user.html'">Вы уже есть?</button>
+                <button onclick="window.location.href='/UserFr/login_user.html'">Вы уже есть?</button>
             </div>
         </form>
         <pre id="result"></pre>
     </div>
 
-    <script>
-        const baseUrl = 'http://localhost:5091'; 
-
+    <script type="module">
+        import { baseUrl } from './config.js';
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -47,7 +46,7 @@
             
 
             if (response.ok) {
-                window.location.href = 'login_user.html';
+                window.location.href = '/UserFr/login_user.html';
             }
         });
     </script>

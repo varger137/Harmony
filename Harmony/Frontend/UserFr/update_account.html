@@ -18,15 +18,14 @@
             <input type="text" id="nickName" required>
             <div class="nav-buttons">
                 <button type="submit">Обновить</button>
-                <button onclick="window.location.href='get_account.html'">Вернуться в профиль</button>
+                <button onclick="window.location.href='/UserFr/get_account.html'">Вернуться в профиль</button>
             </div>
         </form>
         <div id="result"></div>
     </div>
 
-    <script>
-        const baseUrl = 'http://localhost:5091';
-
+    <script type="module">
+        import { baseUrl } from './config.js';
         function parseJwt(token) {
             const base64Url = token.split('.')[1];
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -43,7 +42,7 @@
             const token = localStorage.getItem('token');
             if (!token) {
                 document.getElementById('result').textContent = "Вы должны войти в систему.";
-                window.location.href = 'login_user.html';
+                window.location.href = '/UserFr/login_user.html';
                 return;
             }
 
@@ -76,7 +75,7 @@
 
 
         if (!localStorage.getItem('token')) {
-            window.location.href = 'login_user.html';
+            window.location.href = '/UserFr/login_user.html';
         }
     </script>
 </body>

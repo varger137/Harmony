@@ -10,7 +10,7 @@
     <div class="container">
         <h1>Ваш профиль</h1>
         <div class="nav-buttons">
-            <button onclick="window.location.href='update_account.html'">Редактировать профиль</button>
+            <button onclick="window.location.href='/UserFr/update_account.html'">Редактировать профиль</button>
             <button onclick="window.location.href='../ChannelFr/get_all_channels.html'">Список каналов</button>
             <button onclick="logout()">Выход</button>
         </div>
@@ -20,15 +20,14 @@
         </div>
     </div>
 
-    <script>
-        const baseUrl = 'http://localhost:5091'; 
-
+    <script type="module">
+        import { baseUrl } from './config.js';
         getAccount()
 
         async function checkAuth() {
             const token = localStorage.getItem('token');
             if (!token) {
-                window.location.href = 'login_user.html';
+                window.location.href = '/UserFr/login_user.html';
                 return;
             }
 
@@ -41,7 +40,7 @@
 
             if (response.status === 401) {
                 localStorage.removeItem('token');
-                window.location.href = 'login_user.html';
+                window.location.href = '/UserFr/login_user.html';
             }
         }
 
@@ -73,7 +72,7 @@
             const token = localStorage.getItem('token');
             if (!token) {
                 alert("Сначала вам нужно войти в систему.");
-                window.location.href = 'login_user.html';
+                window.location.href = '/UserFr/login_user.html';
                 return;
             }
 
@@ -86,7 +85,7 @@
 
             if (response.status === 401) {
                 localStorage.removeItem('token');
-                window.location.href = 'login_user.html';
+                window.location.href = '/UserFr/login_user.html';
                 return;
             }
 
@@ -96,14 +95,14 @@
 
         function logout() {
             localStorage.removeItem('token');
-            window.location.href = 'login_user.html';
+            window.location.href = '/UserFr/login_user.html';
         }
 
         async function deleteAccount() {
             const token = localStorage.getItem('token');
             if (!token) {
                 alert("Сначала вам нужно войти в систему.");
-                window.location.href = 'login_user.html';
+                window.location.href = '/UserFr/login_user.html';
                 return;
             }
 
@@ -126,7 +125,7 @@
 
                 if (response.ok) {
                     localStorage.removeItem('token');
-                    window.location.href = 'login_user.html';
+                    window.location.href = '/UserFr/login_user.html';
                 } else {
                     alert("Не удалось удалить аккаунт");
                 }

@@ -18,8 +18,8 @@
         </form>
         <pre id="result"></pre>
     </div>
-    <script>
-        const baseUrl = 'http://localhost:5091';
+    <script type="module">
+        import { baseUrl } from './config.js';
 
         document.getElementById('getUserForm').addEventListener('submit', async (e) => {
             e.preventDefault();

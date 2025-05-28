@@ -16,14 +16,14 @@
             <input type="password" id="password" required>
             <div class="nav-buttons">
                 <button type="submit">Войти</button>
-                <button onclick="window.location.href='register_user.html'">Зарегистрироваться</button>
+                <button onclick="window.location.href='/UserFr/register_user.html'">Зарегистрироваться</button>
             </div>
         </form>
         <pre id="result"></pre>
     </div>
 
-    <script>
-        const baseUrl = 'http://localhost:5091'; 
+    <script type="module">
+        import { baseUrl } from './config.js';
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -43,7 +43,7 @@
             if (response.ok) {
                 if (result.token) {
                     localStorage.setItem('token', result.token);
-                    window.location.href = 'get_account.html';
+                    window.location.href = '/UserFr/get_account.html';
                 } 
             } 
         });

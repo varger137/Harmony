@@ -12,8 +12,8 @@ using TaskCraft.DataBase;
 namespace Harmony.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250305054555_InitialCreate2")]
-    partial class InitialCreate2
+    [Migration("20250423110628_MigrationName")]
+    partial class MigrationName
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

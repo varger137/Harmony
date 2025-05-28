@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Call</title>
+</head>
+<body>
+    <h1>WebRTC Call</h1>
+    <video id="localVideo" autoplay muted></video>
+    <video id="remoteVideo" autoplay></video>
+    <button onclick="startCall()">Start Call</button>
+    <button onclick="shareScreen()">Share Screen</button>
+    <button onclick="joinRoom('room1')">Join Room 1</button>
+    <button onclick="leaveRoom()">Leave Room</button>
+
+    <script src="webrtc.js"></script>
+</body>
+</html>
