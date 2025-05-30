@@ -156,6 +156,7 @@
         }
 
         async function loadChannel() {
+            const userId = localStorage.getItem('userId'); // Получаем ID текущего пользователя
             const response = await fetch(`/channels/${channelId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -172,6 +173,15 @@
                 const channel = await response.json();
                 const channelInfo = document.getElementById('channelInfo');
 
+                // Проверяем, является ли текущий пользователь владельцем
+                const isOwner = channel.ownerId === userId;
+
+                // Скрываем/показываем кнопки управления
+                document.getElementById('updateChannelButton').style.display = isOwner ? 'inline-block' : 'none';
+                document.getElementById('confirmDelete').style.display = isOwner ? 'inline-block' : 'none';
+                document.getElementById('createChatButton').style.display = isOwner ? 'inline-block' : 'none';
+                document.getElementById('createCallChatButton').style.display = isOwner ? 'inline-block' : 'none';
+
                 channelInfo.innerHTML = `
                     <h2>${channel.name}</h2>
                     <p>${channel.description || 'Нет описания'}</p>
@@ -182,20 +192,24 @@
                     ${channel.chats?.length > 0 ? 
                         `<ul>${channel.chats.map(chat => `<li>${chat.name}
                             <button onclick="window.location.href='../ChatFr/chat.html?chatId=${chat.id}&channelId=${channel.id}'">Войти в чат</button>
+                            ${isOwner ? `
                             <button onclick="window.location.href='../ChatFr/update_chat.html?chatId=${chat.id}&channelId=${channel.id}'">Изменить</button>
                             <button onclick="deleteChat('${chat.id}', '${channel.id}')">Удалить</button>
+                            ` : ''}
                         </li>`).join('')}</ul>` : 
                         '<p>Нет чатов</p>'
                     }
 
                     <h3>Чаты звонков:</h3>
                     ${channel.callChats?.length > 0 ? 
-                        `<ul>${channel.callChats.map(callChat => `<li>${callChat.name} (Видео: ${callChat.isVideoEnabled ? 'Включено' : 'Выключено'})
+                        `<ul>${channel.callChats.map(callChat => `<li>${callChat.name}
                             <button onclick="window.location.href='../CallChatFr/call.html?callChatId=${callChat.id}&channelId=${channel.id}'">
                                 Присоединиться
                             </button>
+                            ${isOwner ? `
                             <button onclick="window.location.href='../CallChatFr/update_callchat.html?callChatId=${callChat.id}&channelId=${channel.id}'">Изменить</button>
                             <button onclick="deleteCallChat('${callChat.id}', '${channel.id}')">Удалить</button>
+                            ` : ''}
                         </li>`).join('')}</ul>` : 
                         '<p>Нет чатов звонков</p>'
                     }

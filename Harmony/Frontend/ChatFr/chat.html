@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Chat Room <span id="chatId"></span></h1>
+        <h1 id="chatTitle"></h1>
         <div id="chat" class="card"></div>
         <div class="nav-buttons">
             <input type="text" id="messageInput" placeholder="Введите сообщение...">
@@ -51,7 +51,29 @@
             }
         }
 
-        document.getElementById('chatId').textContent = `#${chatId}`;
+
+
+        async function loadChatInfo() {
+            try {
+                const response = await fetch(`/channels/${channelId}/chats/${chatId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load chat info');
+                }
+
+                const chat = await response.json();
+                document.getElementById('chatTitle').textContent = chat.name;
+            } catch (error) {
+                console.error('Error loading chat info:', error);
+                document.getElementById('chatTitle').textContent = `Чат #${chatId}`;
+            }
+        }
+
+        loadChatInfo();
 
         async function loadMessages() {
             try {
@@ -90,7 +112,7 @@
             }
         }
 
-        const ws = new WebSocket(`wss://188.16.19.243:5091/ws/chat/${chatId}?token=${token}`);
+        const ws = new WebSocket(`wss://100.123.244.108:5091/ws/chat/${chatId}?token=${token}`);
 
         ws.onopen = async () => {
             console.log('WebSocket connection established');

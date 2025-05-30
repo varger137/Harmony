@@ -3,6 +3,7 @@ using TaskCraft.Entities;
 using TaskCraft.DTOs;
 using Microsoft.EntityFrameworkCore;
 using AutoMapper;
+using BCrypt.Net;
 
 namespace TaskCraft.Repositories
 {
@@ -39,7 +40,7 @@ namespace TaskCraft.Repositories
                 .FirstOrDefaultAsync(u => u.Login == login);
 
 
-            if (user != null && user.Password == password)
+            if (user != null && BCrypt.Verify(password, user.Password))
             {
                 return user; 
             }
@@ -58,7 +59,8 @@ namespace TaskCraft.Repositories
 
         public async Task AddUser(RegisterUserDTO userDto)
         {
-            var user = _mapper.Map<User>(userDto);  
+            var user = _mapper.Map<User>(userDto);
+            user.Password = BCrypt.HashPassword(user.Password);  // Хешируем пароль
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
@@ -70,7 +72,11 @@ namespace TaskCraft.Repositories
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
             if (user != null)
             {
-                _mapper.Map(userDto, user); 
+                _mapper.Map(userDto, user);
+                if (!string.IsNullOrEmpty(userDto.Password))
+                {
+                    user.Password = BCrypt.HashPassword(userDto.Password);  // Хешируем новый пароль
+                }
                 _context.Users.Update(user);
                 await _context.SaveChangesAsync();
             }

@@ -95,6 +95,7 @@
 
         function logout() {
             localStorage.removeItem('token');
+            localStorage.removeItem('nickName');
             window.location.href = '/UserFr/login_user.html';
         }
 
@@ -125,6 +126,7 @@
 
                 if (response.ok) {
                     localStorage.removeItem('token');
+                    localStorage.removeItem('nickName'); // Удаляем никнейм
                     window.location.href = '/UserFr/login_user.html';
                 } else {
                     alert("Не удалось удалить аккаунт");

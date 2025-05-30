@@ -24,13 +24,12 @@ public class CallChatRepository
             {
                 Id = Guid.NewGuid(),
                 Name = callChatDto.Name,
-                IsVideoEnabled = callChatDto.IsVideoEnabled,
                 OwnerId = ownerId,
                 ChannelId = channelId,
                 CreatedAt = DateTime.UtcNow,
                 Participants = new List<CallChatParticipant>()
             };
-
+            // ... rest of the method ...
             _context.CallChats.Add(callChat);
             await _context.SaveChangesAsync();
             return callChat.Id;
@@ -56,7 +55,6 @@ public class CallChatRepository
             Name = callChat.Name,
             OwnerId = callChat.OwnerId,
             ChannelId = callChat.ChannelId,
-            IsVideoEnabled = callChat.IsVideoEnabled,
             CreatedAt = callChat.CreatedAt,
             StartedAt = callChat.StartedAt,
             EndedAt = callChat.EndedAt,
@@ -74,7 +72,6 @@ public class CallChatRepository
                 Name = c.Name,
                 OwnerId = c.OwnerId,
                 ChannelId = c.ChannelId,
-                IsVideoEnabled = c.IsVideoEnabled,
                 CreatedAt = c.CreatedAt,
                 StartedAt = c.StartedAt,
                 EndedAt = c.EndedAt,
@@ -89,7 +86,6 @@ public class CallChatRepository
         if (callChat == null) return false;
 
         callChat.Name = callChatDto.Name;
-        callChat.IsVideoEnabled = callChatDto.IsVideoEnabled;
 
         _context.CallChats.Update(callChat);
         return await _context.SaveChangesAsync() > 0;

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "ncl5O5qMlXRAu07kE04ZKSiX00NsvLJbDFfaRAAmfGN4YqdVRSxrsTm9EoMO8PMxzIsSNSrlDRziOW/K79PGkg==",
+  "dgSpecHash": "hZjRfbor6XYfja+UV2fHU2CscjWV4d0/65xhGFIh0QwPQuXjRb0RQmzocZu/qUwsZquGW+0MmUoTAIOz7zwzdA==",
   "success": true,
   "projectFilePath": "D:\\Для учебы\\УП\\Работы Дарьи\\Harmony\\Harmony.csproj",
   "expectedPackageFiles": [
@@ -8,6 +8,7 @@
     "C:\\Users\\dedushka\\.nuget\\packages\\automapper.extensions.microsoft.dependencyinjection\\12.0.1\\automapper.extensions.microsoft.dependencyinjection.12.0.1.nupkg.sha512",
     "C:\\Users\\dedushka\\.nuget\\packages\\azure.core\\1.25.0\\azure.core.1.25.0.nupkg.sha512",
     "C:\\Users\\dedushka\\.nuget\\packages\\azure.identity\\1.7.0\\azure.identity.1.7.0.nupkg.sha512",
+    "C:\\Users\\dedushka\\.nuget\\packages\\bcrypt.net-next\\4.0.3\\bcrypt.net-next.4.0.3.nupkg.sha512",
     "C:\\Users\\dedushka\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\dedushka\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\8.0.0\\microsoft.aspnetcore.authentication.jwtbearer.8.0.0.nupkg.sha512",
     "C:\\Users\\dedushka\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\6.0.0\\microsoft.bcl.asyncinterfaces.6.0.0.nupkg.sha512",

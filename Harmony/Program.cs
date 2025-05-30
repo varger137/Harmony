@@ -68,8 +68,7 @@ builder.Services.AddSignalR();
 var app = builder.Build();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
-// Можно удалить, если больше не используете прямые WebSocket
-// app.UseWebSockets();
+app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
 #endregion
@@ -308,7 +307,13 @@ app.MapPost("/users/login", async (UserRepository userRepository, LoginUserDTO l
 
     var token = AuthOptions.CreateToken(claims.ToDictionary(claim => claim.Type, claim => claim.Value));
 
-    return Results.Ok(new { Token = token });
+    // Возвращаем никнейм вместе с токеном
+    return Results.Ok(new
+    {
+        Token = token,
+        NickName = user.NickName, 
+        userId = user.Id 
+    });
 });
 app.MapGet("/users/account", [Authorize] async (UserRepository userRepository, HttpContext ctx) =>
 {

@@ -9,20 +9,21 @@
 </head>
 <body>
 <div class="container">
-    <h1>Звонок <span id="callChatId"></span></h1>
+    <h1 id="callChatTitle"></h1>
     <div id="videoContainer">
         <div class="video-wrapper">
             <video id="localVideo" autoplay muted playsinline></video>
             <div class="camera-placeholder" id="localCameraPlaceholder">Камера выключена</div>
+            <div class="nickname-label" id="localNickname"></div>
         </div>
     </div>
-    <div class="nav-buttons">
-<button id="micButton" onclick="toggleMic()">Микрофон включен</button>
-<button id="cameraButton" onclick="toggleCamera()">Камера включена</button>
-
-        <button onclick="toggleScreenShare()">Демонстрация экрана</button>
-        <button onclick="endCall()">Завершить</button>
-    </div>
+<div class="nav-buttons">
+  <button id="micButton" onclick="toggleMic()">Микрофон включен</button>
+  <button id="cameraButton" onclick="toggleCamera()">Камера включена</button>
+  <button onclick="toggleScreenShare()">Демонстрация экрана</button>
+  <button id="noiseButton" onclick="toggleNoiseSuppression()">Шумоподавление включено</button>
+  <button onclick="endCall()">Завершить</button>
+</div>
 </div>
 
 <script>
@@ -30,13 +31,15 @@ const token = localStorage.getItem('token');
 const urlParams = new URLSearchParams(window.location.search);
 const callChatId = urlParams.get('callChatId');
 const channelId = urlParams.get('channelId');
+let noiseSuppressionEnabled = true;
+
 
 if (!token) {
     alert('Сначала войдите в систему');
     window.location.href = '../UserFr/login_user.html';
 }
 
-document.getElementById('callChatId').textContent = callChatId;
+document.getElementById('callChatTitle').textContent = callChatId;
 
 let localStream = null;
 let screenStream = null;
@@ -52,8 +55,14 @@ const screenSharingStates = new Map();
 const pendingCameraStates = new Map();
 const pendingScreenSharingStates = new Map();
 
+function getNickName() {
+    return localStorage.getItem('nickName') || "Вы";
+}
+
+
+
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl(`https://188.16.19.243:5091/hubs/callChat?callChatId=${callChatId}&token=${token}`)
+    .withUrl(`https://100.123.244.108:5091/hubs/callChat?callChatId=${callChatId}&token=${token}`)
     .withAutomaticReconnect()
     .build();
 
@@ -61,12 +70,34 @@ connection.on("ReceiveSignal", async (message) => {
     const signal = JSON.parse(message);
     const senderId = signal.senderId;
 
+    if (signal.requestNickname) {
+    sendSignal(senderId, {
+        nickName: getNickName(),
+        senderId: ownConnectionId
+    });
+    return;
+}
+
     // Не обрабатываем сигнал, отправленный самим себе (кроме joined)
     if (senderId === ownConnectionId && !signal.joined) return;
 
     if (signal.left) {
         removeParticipant(senderId);
         return;
+    }
+
+    if (signal.nickName) {
+        const videoWrapper = document.querySelector(`.video-wrapper[data-peer-id="${signal.senderId}"]`);
+        if (videoWrapper) {
+            let nicknameLabel = videoWrapper.querySelector('.nickname-label');
+            if (!nicknameLabel) {
+                nicknameLabel = document.createElement('div');
+                nicknameLabel.className = 'nickname-label';
+                videoWrapper.appendChild(nicknameLabel);
+            }
+            nicknameLabel.textContent = signal.nickName;
+        }
+        // Не делаем return, чтобы обрабатывались другие сигналы
     }
 
     if (signal.cameraState !== undefined) {
@@ -148,23 +179,14 @@ connection.on("UserJoined", async (connectionId) => {
     if (connectionId !== ownConnectionId && !peers.has(connectionId)) {
         await createPeerConnection(connectionId);
         sendSignal(connectionId, {
-            cameraState: isCameraOn,
-            screenSharing: isScreenSharing,
+            nickName: getNickName(), // Отправляем свой никнейм
             senderId: ownConnectionId
         });
     }
 });
 
 
-connection.on("UserJoined", async (connectionId) => {
-    if (connectionId !== ownConnectionId && !peers.has(connectionId)) {
-        await createPeerConnection(connectionId);
-        sendSignal(connectionId, {
-            cameraState: isCameraOn,
-            screenSharing: isScreenSharing
-        });
-    }
-});
+
 
 connection.on("UserLeft", (connectionId) => {
     removeParticipant(connectionId);
@@ -174,23 +196,34 @@ async function start() {
     await connection.start();
     ownConnectionId = connection.connectionId;
     await initializeCamera();
+    
+    // Получаем и отображаем никнейм
+    document.getElementById('localNickname').textContent = getNickName();
 
     await connection.invoke("SendSignal", JSON.stringify({
         joined: true,
-        senderId: ownConnectionId
+        senderId: ownConnectionId,
+        nickName: getNickName() // Добавляем отправку никнейма
     }));
 
     for (const participantId of peers.keys()) {
         sendSignal(participantId, {
-            cameraState: isCameraOn,
-            screenSharing: isScreenSharing
+            requestNickname: true,
+            senderId: ownConnectionId
         });
     }
 }
 
 async function initializeCamera() {
     try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: {
+                noiseSuppression: noiseSuppressionEnabled,
+                echoCancellation: true,
+                autoGainControl: true
+            }
+        });
 
         // Отключаем сразу
         localStream.getAudioTracks().forEach(track => track.enabled = false);
@@ -206,11 +239,40 @@ async function initializeCamera() {
         // Обновляем кнопки в UI
         document.getElementById('micButton').textContent = 'Микрофон выключен';
         document.getElementById('cameraButton').textContent = 'Камера выключена';
+
+        const videoWrapper = document.querySelector('.video-wrapper');
+        videoWrapper.addEventListener('click', () => toggleFocus('local'));
+        videoWrapper.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            showVolumeSlider(remoteId, e.clientX, e.clientY);
+        });
     } catch (e) {
         console.error("Ошибка камеры:", e);
     }
 }
 
+
+async function loadCallChatInfo() {
+    try {
+        const response = await fetch(`/channels/${channelId}/call-chats/${callChatId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load call chat info');
+        }
+
+        const callChat = await response.json();
+        document.getElementById('callChatTitle').textContent = callChat.name;
+    } catch (error) {
+        console.error('Error loading call chat info:', error);
+        document.getElementById('callChatTitle').textContent = `Звонок #${callChatId}`;
+    }
+}
+
+loadCallChatInfo();
 
 async function createPeerConnection(remoteId) {
     const pc = new RTCPeerConnection({
@@ -229,38 +291,58 @@ async function createPeerConnection(remoteId) {
         const stream = event.streams[0];
 
         if (!participants.has(remoteId)) {
-    const videoWrapper = document.createElement('div');
-    videoWrapper.className = 'video-wrapper';
+            const videoWrapper = document.createElement('div');
+            videoWrapper.className = 'video-wrapper';
+            videoWrapper.dataset.peerId = remoteId;
+            
+            // Создаем элемент для никнейма
+            const nicknameLabel = document.createElement('div');
+            nicknameLabel.className = 'nickname-label';
+            videoWrapper.appendChild(nicknameLabel);
 
-    const video = document.createElement('video');
-    video.id = `remoteVideo_${remoteId}`;
-    video.autoplay = true;
-    video.playsInline = true;
-    video.srcObject = stream;
+            // Добавляем обработчик клика
+            videoWrapper.addEventListener('click', () => toggleFocus(remoteId));
 
-    const placeholder = document.createElement('div');
-    placeholder.className = 'camera-placeholder';
-    placeholder.textContent = 'Камера выключена';
+            const video = document.createElement('video');
+            video.id = `remoteVideo_${remoteId}`;
+            video.autoplay = true;
+            video.playsInline = true;
+            video.srcObject = stream;
 
-    videoWrapper.appendChild(video);
-    videoWrapper.appendChild(placeholder);
-    document.getElementById('videoContainer').appendChild(videoWrapper);
 
-    participants.set(remoteId, video);
 
-    // Применяем состояния камеры/демонстрации экрана, если были отложены
-    if (pendingCameraStates.has(remoteId)) {
-        cameraStates.set(remoteId, pendingCameraStates.get(remoteId));
-        pendingCameraStates.delete(remoteId);
-    }
+            // Добавляем обработчик ПКМ на само видео
+videoWrapper.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    showVolumeSlider(remoteId, e.clientX, e.clientY);
+});
+            const placeholder = document.createElement('div');
+            placeholder.className = 'camera-placeholder';
+            placeholder.textContent = 'Камера выключена';
 
-    if (pendingScreenSharingStates.has(remoteId)) {
-        screenSharingStates.set(remoteId, pendingScreenSharingStates.get(remoteId));
-        pendingScreenSharingStates.delete(remoteId);
-    }
+            videoWrapper.appendChild(video);
+            videoWrapper.appendChild(placeholder);
+            document.getElementById('videoContainer').appendChild(videoWrapper);
 
-    updateCameraPlaceholder(remoteId);
-}else {
+            participants.set(remoteId, video);
+            sendSignal(remoteId, {
+            requestNickname: true,
+            senderId: ownConnectionId
+            });
+
+            // Применяем состояния камеры/демонстрации экрана, если были отложены
+            if (pendingCameraStates.has(remoteId)) {
+                cameraStates.set(remoteId, pendingCameraStates.get(remoteId));
+                pendingCameraStates.delete(remoteId);
+            }
+
+            if (pendingScreenSharingStates.has(remoteId)) {
+                screenSharingStates.set(remoteId, pendingScreenSharingStates.get(remoteId));
+                pendingScreenSharingStates.delete(remoteId);
+            }
+
+            updateCameraPlaceholder(remoteId);
+        } else {
             const video = participants.get(remoteId);
             video.srcObject = stream;
             updateCameraPlaceholder(remoteId);
@@ -367,12 +449,15 @@ function updateCameraPlaceholder(connectionId) {
     }
 }
 
-
 function removeParticipant(id) {
     if (participants.has(id)) {
         const video = participants.get(id);
         const wrapper = video.parentElement;
-        if (wrapper && wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
+        if (wrapper && wrapper.parentNode) {
+            // Удаляем обработчик перед удалением
+            wrapper.removeEventListener('click', () => toggleFocus(id));
+            wrapper.parentNode.removeChild(wrapper);
+        }
         participants.delete(id);
     }
 
@@ -462,7 +547,7 @@ async function startScreenShare() {
         // Добавляем видео с экрана
         screenStream.getVideoTracks().forEach(track => combinedStream.addTrack(track));
 
-        // Добавляем смешанный аудио трек
+        // Добавляем смешенный аудио трек
         if (destination.stream.getAudioTracks().length > 0) {
             combinedStream.addTrack(destination.stream.getAudioTracks()[0]);
         }
@@ -522,6 +607,177 @@ function stopScreenShare() {
 
     document.querySelector('button[onclick="toggleScreenShare()"]').textContent = 'Демонстрация экрана';
 }
+
+function toggleFocus(peerId) {
+    const videoContainer = document.getElementById('videoContainer');
+    const allWrappers = document.querySelectorAll('.video-wrapper');
+    const clickedWrapper = peerId === 'local'
+        ? document.querySelector('.video-wrapper:not([data-peer-id])')
+        : document.querySelector(`.video-wrapper[data-peer-id="${peerId}"]`);
+
+    if (!clickedWrapper) return;
+
+    const isAlreadyFocused = clickedWrapper.classList.contains('focused');
+
+    // Снимаем фокус со всех
+    allWrappers.forEach(wrapper => wrapper.classList.remove('focused'));
+
+    if (!isAlreadyFocused) {
+        // Добавляем фокус выбранному
+        clickedWrapper.classList.add('focused');
+
+        // Перемещаем его в начало контейнера
+        videoContainer.prepend(clickedWrapper);
+    }
+    else {
+        // Если кликнули на уже сфокусированное, снимаем фокус,
+        // и можно оставить порядок как есть или вернуть локальное видео в начало
+        // Например, вернуть локальное видео в начало:
+        const localWrapper = document.querySelector('.video-wrapper:not([data-peer-id])');
+        if (localWrapper) videoContainer.prepend(localWrapper);
+    }
+}
+// Хранилище громкости
+function showVolumeSlider(peerId, x, y) {
+    let existingSlider = document.getElementById(`volumeSlider_${peerId}`);
+    if (!existingSlider) {
+        existingSlider = document.createElement('div');
+        existingSlider.className = 'volume-slider';
+        existingSlider.id = `volumeSlider_${peerId}`;
+
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.min = 0;
+        range.max = 1;
+        range.step = 0.01;
+        range.value = 1; // По умолчанию 100%
+
+        const percentLabel = document.createElement('span');
+        percentLabel.textContent = `100%`;
+
+        const toggleBtn = document.createElement('button');
+toggleBtn.textContent = '🔇';
+toggleBtn.style.width = '5px';
+toggleBtn.style.height = '5px';
+toggleBtn.style.display = 'flex';
+toggleBtn.style.alignItems = 'center';
+toggleBtn.style.justifyContent = 'center';
+toggleBtn.style.border = 'none';
+toggleBtn.style.background = '#333';
+toggleBtn.style.color = '#fff';
+toggleBtn.style.cursor = 'pointer';
+toggleBtn.style.borderRadius = '6px';
+toggleBtn.style.fontSize = '18px';
+toggleBtn.style.lineHeight = '1';
+
+
+        let isMuted = false;
+        toggleBtn.addEventListener('click', () => {
+            const video = document.getElementById(`remoteVideo_${peerId}`);
+            if (!video) return;
+
+            isMuted = !isMuted;
+            if (isMuted) {
+                video.volume = 0;
+                range.value = 0;
+                percentLabel.textContent = '0%';
+                toggleBtn.textContent = '🔊';
+            } else {
+                video.volume = 1;
+                range.value = 1;
+                percentLabel.textContent = '100%';
+                toggleBtn.textContent = '🔇';
+            }
+        });
+
+        range.addEventListener('input', () => {
+            const vol = parseFloat(range.value);
+            const video = document.getElementById(`remoteVideo_${peerId}`);
+            if (video) video.volume = vol;
+
+            percentLabel.textContent = `${Math.round(vol * 100)}%`;
+            toggleBtn.textContent = vol === 0 ? '🔊' : '🔇';
+            isMuted = vol === 0;
+        });
+
+        existingSlider.appendChild(range);
+        existingSlider.appendChild(percentLabel);
+        existingSlider.appendChild(toggleBtn);
+        document.body.appendChild(existingSlider);
+    }
+
+    existingSlider.style.display = 'flex';
+    existingSlider.style.left = `${x}px`;
+    existingSlider.style.top = `${y}px`;
+
+    const close = (e) => {
+        if (!existingSlider.contains(e.target)) {
+            existingSlider.style.display = 'none';
+            document.removeEventListener('click', close);
+        }
+    };
+    setTimeout(() => document.addEventListener('click', close), 0);
+}
+
+
+
+async function toggleNoiseSuppression() {
+    noiseSuppressionEnabled = !noiseSuppressionEnabled;
+    const noiseButton = document.getElementById('noiseButton');
+    noiseButton.textContent = noiseSuppressionEnabled
+        ? 'Шумоподавление включено'
+        : 'Шумоподавление выключено';
+
+    try {
+        const newAudioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                noiseSuppression: noiseSuppressionEnabled,
+                echoCancellation: true,
+                autoGainControl: true
+            }
+        });
+
+        const newAudioTrack = await processAudioWithFilters(newAudioStream);
+        const oldAudioTrack = localStream.getAudioTracks()[0];
+
+        localStream.removeTrack(oldAudioTrack);
+        oldAudioTrack.stop();
+        localStream.addTrack(newAudioTrack);
+
+        for (const [id, { pc }] of peers.entries()) {
+            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'audio');
+            if (sender) sender.replaceTrack(newAudioTrack);
+        }
+    } catch (err) {
+        console.error('Ошибка переключения шумоподавления:', err);
+    }
+}
+async function processAudioWithFilters(stream) {
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+
+    const highpassFilter = audioContext.createBiquadFilter();
+    highpassFilter.type = 'highpass';
+    highpassFilter.frequency.value = 150; // Отсекаем всё ниже 150 Гц
+
+    const compressor = audioContext.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-50, audioContext.currentTime);
+    compressor.knee.setValueAtTime(40, audioContext.currentTime);
+    compressor.ratio.setValueAtTime(12, audioContext.currentTime);
+    compressor.attack.setValueAtTime(0, audioContext.currentTime);
+    compressor.release.setValueAtTime(0.25, audioContext.currentTime);
+
+    const destination = audioContext.createMediaStreamDestination();
+
+    source.connect(highpassFilter);
+    highpassFilter.connect(compressor);
+    compressor.connect(destination);
+
+    return destination.stream.getAudioTracks()[0];
+}
+
+
+
 </script>
 </body>
 </html>
