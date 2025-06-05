@@ -133,3 +133,7 @@ D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\refin
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\Harmony.pdb
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\Harmony.genruntimeconfig.cache
 D:\Для учебы\УП\Работы Дарьи\Harmony\obj\Debug\net8.0\ref\Harmony.dll
+D:\Для учебы\УП\Работы Дарьи\Harmony\bin\Debug\net8.0\BCrypt.Net-Next.dll
+D:\Для учебы\УП\Работы Дарьи\harmony\bin\Debug\net8.0\Microsoft.Bcl.Memory.dll
+D:\Для учебы\УП\Работы Дарьи\harmony\bin\Debug\net8.0\Newtonsoft.Json.dll
+D:\Для учебы\УП\Работы Дарьи\harmony\bin\Debug\net8.0\Twilio.dll

@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Комната чата</title>
     <link rel="stylesheet" href="../styles.css"> 
+        <script type="module">
+        import { checkTokenAndRedirect } from '../Utils/authUtils.js';
+        if (!checkTokenAndRedirect()) {
+            throw new Error('Invalid token');
+        }
+    </script>
 </head>
 <body>
     <div class="container">
@@ -25,10 +31,7 @@
         const chatId = urlParams.get('chatId');
         const channelId = urlParams.get('channelId');
 
-        if (!token) {
-            alert('Please login first');
-            window.location.href = '../UserFr/login_user.html';
-        }
+
 
 
         async function getNickName() {
@@ -121,25 +124,40 @@
 
         ws.onmessage = async (event) => {
     try {
-        const messageData = JSON.parse(event.data); 
-        const messageText = messageData.Text;
-        const nickName = messageData.NickName;
-        const dateTime = new Date(messageData.DateTime).toLocaleString();
+        const messageData = JSON.parse(event.data);
+        
+        // Если сообщение для текущего чата
+        if (messageData.ChatId === chatId) {
+            const messageText = messageData.Text;
+            const nickName = messageData.NickName;
+            const dateTime = new Date(messageData.DateTime).toLocaleString();
 
-        const chat = document.getElementById('chat');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message';
+            const chat = document.getElementById('chat');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
 
-        const formattedNickName = nickName.charAt(0).toUpperCase() + nickName.slice(1);
-
-        messageDiv.textContent = `${formattedNickName}: ${messageText} (${dateTime})`;
-        chat.appendChild(messageDiv);
-
-        chat.scrollTop = chat.scrollHeight;
+            const formattedNickName = nickName.charAt(0).toUpperCase() + nickName.slice(1);
+            messageDiv.textContent = `${formattedNickName}: ${messageText} (${dateTime})`;
+            chat.appendChild(messageDiv);
+            chat.scrollTop = chat.scrollHeight;
+        } else {
+            // Уведомление для других чатов/каналов
+            if (Notification.permission === "granted") {
+                new Notification(`Новое сообщение в чате`, {
+                    body: `${messageData.NickName}: ${messageData.Text}`,
+                    icon: "/icon.png"
+                });
+            }
+        }
     } catch (error) {
         console.error("Error parsing WebSocket message:", error);
     }
 };
+
+// Запрашиваем разрешение на уведомления
+if (Notification.permission !== "granted") {
+    Notification.requestPermission();
+}
 
         ws.onclose = () => {
             console.log('WebSocket connection closed');
@@ -164,6 +182,20 @@
                 document.getElementById('sendButton').click();
             }
         });
+
+        // Проверяем поддержку уведомлений
+if (!("Notification" in window)) {
+    console.log("Браузер не поддерживает уведомления");
+} else if (Notification.permission === "granted") {
+    // Уже есть разрешение
+} else if (Notification.permission !== "denied") {
+    // Запрашиваем разрешение
+    Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+            console.log("Разрешение на уведомления получено");
+        }
+    });
+}
     </script>
 </body>
 </html>

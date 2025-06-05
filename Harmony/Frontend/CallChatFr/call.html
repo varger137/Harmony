@@ -6,6 +6,15 @@
     <title>Звонок</title>
     <link rel="stylesheet" href="../styles.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
+    <script type="module">
+        import { checkTokenAndRedirect } from '../Utils/authUtils.js';
+        
+        // Проверяем токен при загрузке страницы
+        if (!checkTokenAndRedirect()) {
+            // Прекращаем выполнение, если токен невалиден
+            throw new Error('Invalid token');
+        }
+    </script>
 </head>
 <body>
 <div class="container">
@@ -34,10 +43,6 @@ const channelId = urlParams.get('channelId');
 let noiseSuppressionEnabled = true;
 
 
-if (!token) {
-    alert('Сначала войдите в систему');
-    window.location.href = '../UserFr/login_user.html';
-}
 
 document.getElementById('callChatTitle').textContent = callChatId;
 
@@ -508,6 +513,10 @@ window.addEventListener('beforeunload', async () => {
     }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
+    }
+    // Проверяем срок действия токена перед закрытием страницы
+    if (isTokenExpired(localStorage.getItem('token'))) {
+        localStorage.clear();
     }
 });
 

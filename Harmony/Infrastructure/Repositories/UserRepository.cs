@@ -12,13 +12,11 @@ namespace TaskCraft.Repositories
         private readonly AppDbContext _context;
         private readonly IMapper _mapper;  
 
-
         public UserRepository(AppDbContext context, IMapper mapper)
         {
             _context = context;
             _mapper = mapper;
         }
-
 
         public async Task<GetUserDTO> GetUserById(Guid id)
         {
@@ -39,15 +37,15 @@ namespace TaskCraft.Repositories
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Login == login);
 
-
-            if (user != null && BCrypt.Verify(password, user.Password))
+            if (user != null && BCrypt.Net.BCrypt.Verify(password, user.Password))
             {
                 return user; 
             }
 
             return null; 
         }
-                public async Task<GetUserDTO> GetUserByLogin(string Login)
+
+        public async Task<GetUserDTO> GetUserByLogin(string Login)
         {
             var user = await _context.Users
                 .Include(u => u.Channels)  
@@ -56,31 +54,37 @@ namespace TaskCraft.Repositories
             return user != null ? _mapper.Map<GetUserDTO>(user) : null;
         }
 
-
         public async Task AddUser(RegisterUserDTO userDto)
         {
             var user = _mapper.Map<User>(userDto);
-            user.Password = BCrypt.HashPassword(user.Password);  // Хешируем пароль
-
+            user.Password = BCrypt.Net.BCrypt.HashPassword(userDto.Password);
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
         }
 
+public async Task UpdateUser(Guid id, UpdateUserDTO userDto)
+{
+    var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+    if (user == null) 
+        throw new InvalidOperationException("User not found");
 
-        public async Task UpdateUser(Guid id, UpdateUserDTO userDto)
-        {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
-            if (user != null)
-            {
-                _mapper.Map(userDto, user);
-                if (!string.IsNullOrEmpty(userDto.Password))
-                {
-                    user.Password = BCrypt.HashPassword(userDto.Password);  // Хешируем новый пароль
-                }
-                _context.Users.Update(user);
-                await _context.SaveChangesAsync();
-            }
-        }
+    if (!BCrypt.Net.BCrypt.Verify(userDto.OldPassword, user.Password))
+    {
+        throw new InvalidOperationException("Неверный текущий пароль");
+    }
+
+    user.Login = userDto.Login;
+    user.NickName = userDto.NickName;
+    user.PhoneNumber = userDto.PhoneNumber; 
+
+    if (!string.IsNullOrEmpty(userDto.NewPassword))
+    {
+        user.Password = BCrypt.Net.BCrypt.HashPassword(userDto.NewPassword);
+    }
+
+    _context.Users.Update(user);
+    await _context.SaveChangesAsync();
+}
 
         public async Task DeleteUser(Guid id)
         {
@@ -90,6 +94,14 @@ namespace TaskCraft.Repositories
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
             }
+        }
+        
+        public async Task<bool> ValidatePassword(Guid userId, string password)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return false;
+
+            return BCrypt.Net.BCrypt.Verify(password, user.Password);
         }
 
         public async Task<List<GetUserDTO>> GetAllUsers()

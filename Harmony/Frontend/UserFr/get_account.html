@@ -3,133 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Get Account</title>
+    <title>Профиль</title>
     <link rel="stylesheet" href="../styles.css">
+    <script type="module">
+        import { checkTokenAndRedirect } from '../Utils/authUtils.js';
+        if (!checkTokenAndRedirect()) {
+            throw new Error('Invalid token');
+        }
+    </script>
 </head>
 <body>
     <div class="container">
-        <h1>Ваш профиль</h1>
-        <div class="nav-buttons">
-            <button onclick="window.location.href='/UserFr/update_account.html'">Редактировать профиль</button>
-            <button onclick="window.location.href='../ChannelFr/get_all_channels.html'">Список каналов</button>
-            <button onclick="logout()">Выход</button>
+        <div class="sidebar">
+            <h2>Навигация</h2>
+            <button onclick="window.location.href='update_account.html'">Редактировать профиль</button>
+            <button onclick="window.location.href='../ChannelFr/get_all_channels.html'">Мои каналы</button>
+            <button class="danger" onclick="logout()">Выйти</button>
         </div>
-        <div id="account-info" class="card"></div>
-        <div class="nav-buttons">
-            <button onclick="deleteAccount()">Удалить аккаунт</button>
+        
+        <div class="main-content">
+            <div class="profile-section">
+                <h1>Мой профиль</h1>
+                <div id="account-info"></div>
+                <button class="danger" onclick="deleteAccount()">Удалить аккаунт</button>
+            </div>
+            
+            <div class="channels-section">
+                <h2>Мои каналы</h2>
+                <div id="channelsList" class="channel-list"></div>
+            </div>
         </div>
     </div>
 
     <script>
-
-        getAccount()
-
-        async function checkAuth() {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                window.location.href = '/UserFr/login_user.html';
-                return;
-            }
-
-            const response = await fetch(`/users/account`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.status === 401) {
-                localStorage.removeItem('token');
-                window.location.href = '/UserFr/login_user.html';
-            }
-        }
-
-
-        checkAuth();
+        getAccount();
 
         function displayAccountInfo(account) {
             const accountInfo = document.getElementById('account-info');
+            const initials = account.nickName ? account.nickName.charAt(0).toUpperCase() : 'U';
+            
             accountInfo.innerHTML = `
-                <p><strong>ID:</strong> ${account.id}</p>
-                <p><strong>Логин:</strong> ${account.login}</p>
-                <p><strong>Имя:</strong> ${account.nickName}</p>
-                <h3>Созданные каналы</h3>
-                ${account.channels.length > 0 ? 
-                    `<ul>
-                        ${account.channels.map(channel => `
-                            <li>
-                                <strong>${channel.name}</strong><br>
-                                ${channel.description}<br>
-                                <small>ID: ${channel.id}</small>
-                            </li>
-                        `).join('')}
-                    </ul>` : 
-                    '<p>У вас нет созданных вами каналов</p>'}
+                <div class="profile-info">
+                    <div class="profile-avatar">${initials}</div>
+                    <div class="profile-details">
+                        <p><strong>Имя:</strong> ${account.nickName || 'Не указано'}</p>
+                        <p><strong>Логин:</strong> ${account.login}</p>
+                        ${account.phoneNumber ? `<p><strong>Телефон:</strong> ${account.phoneNumber}</p>` : ''}
+                    </div>
+                </div>
             `;
+            
+            if (account.channels && account.channels.length > 0) {
+                const channelsList = document.getElementById('channelsList');
+                channelsList.innerHTML = account.channels.map(channel => `
+                    <div class="channel-item">
+                        <div>
+                            <strong>${channel.name}</strong>
+                            <p>${channel.description || 'Нет описания'}</p>
+                        </div>
+                        <div class="channel-actions">
+                            <button onclick="window.location.href='../ChannelFr/get_channel.html?id=${channel.id}'">Открыть</button>
+                            <button class="danger" onclick="event.stopPropagation(); deleteChannel('${channel.id}')">Удалить</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
         }
 
         async function getAccount() {
             const token = localStorage.getItem('token');
             if (!token) {
-                alert("Сначала вам нужно войти в систему.");
                 window.location.href = '/UserFr/login_user.html';
                 return;
             }
 
-            const response = await fetch(`/users/account`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
+            try {
+                const response = await fetch(`/users/account`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.status === 401) {
+                    localStorage.clear();
+                    window.location.href = '/UserFr/login_user.html';
+                    return;
                 }
-            });
 
-            if (response.status === 401) {
-                localStorage.removeItem('token');
-                window.location.href = '/UserFr/login_user.html';
-                return;
+                const result = await response.json();
+                if (result.phoneNumber) {
+                    localStorage.setItem('phoneNumber', result.phoneNumber);
+                }
+                displayAccountInfo(result);
+            } catch (error) {
+                console.error('Error fetching account:', error);
             }
-
-            const result = await response.json();
-            displayAccountInfo(result);
         }
 
         function logout() {
-            localStorage.removeItem('token');
-            localStorage.removeItem('nickName');
+            localStorage.clear();
             window.location.href = '/UserFr/login_user.html';
         }
 
         async function deleteAccount() {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                alert("Сначала вам нужно войти в систему.");
-                window.location.href = '/UserFr/login_user.html';
-                return;
-            }
-
-
-            const accountResponse = await fetch(`/users/account`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            const account = await accountResponse.json();
-
             if (confirm("Вы уверены, что хотите удалить свою учетную запись? Это действие невозможно отменить!")) {
-                const response = await fetch(`/users/delete/${account.id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
+                const token = localStorage.getItem('token');
+                try {
+                    const response = await fetch(`/users/delete`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
 
-                if (response.ok) {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('nickName'); // Удаляем никнейм
-                    window.location.href = '/UserFr/login_user.html';
-                } else {
-                    alert("Не удалось удалить аккаунт");
+                    if (response.ok) {
+                        localStorage.clear();
+                        window.location.href = '/UserFr/login_user.html';
+                    } else {
+                        const error = await response.text();
+                        alert(`Ошибка: ${error}`);
+                    }
+                } catch (error) {
+                    console.error('Error deleting account:', error);
+                    alert('Произошла ошибка при удалении аккаунта');
+                }
+            }
+        }
+
+        async function deleteChannel(channelId) {
+            if (confirm("Вы уверены, что хотите удалить этот канал?")) {
+                const token = localStorage.getItem('token');
+                try {
+                    const response = await fetch(`/channels/delete/${channelId}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (response.ok) {
+                        getAccount(); // Обновляем список каналов
+                    } else {
+                        const error = await response.text();
+                        alert(`Ошибка: ${error}`);
+                    }
+                } catch (error) {
+                    console.error('Error deleting channel:', error);
+                    alert('Произошла ошибка при удалении канала');
                 }
             }
         }

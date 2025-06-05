@@ -66,6 +66,7 @@ public class CallChatRepository
     {
         return await _context.CallChats
             .Where(c => c.ChannelId == channelId)
+            .Include(c => c.Participants) // Add this line to include participants
             .Select(c => new GetCallChatDTO
             {
                 Id = c.Id,

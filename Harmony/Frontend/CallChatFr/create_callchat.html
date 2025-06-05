@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Создать чат звонка</title>
     <link rel="stylesheet" href="../styles.css">
+    <script type="module">
+        import { checkTokenAndRedirect } from '../Utils/authUtils.js';
+        
+        // Проверяем токен при загрузке страницы
+        if (!checkTokenAndRedirect()) {
+            // Прекращаем выполнение, если токен невалиден
+            throw new Error('Invalid token');
+        }
+    </script>
 </head>
 <body>
     <div class="container">
@@ -24,10 +33,6 @@
         const urlParams = new URLSearchParams(window.location.search);
         const channelId = urlParams.get('channelId');
 
-        if (!token) {
-            alert('Сначала войдите в систему');
-            window.location.href = '../UserFr/login_user.html';
-        }
 
         if (!channelId) {
             alert('Ошибка: ID канала не найден');
@@ -38,7 +43,6 @@
 
             const callChatData = {
                 name: document.getElementById('name').value,
-                isVideoEnabled: false
             };
 
             const response = await fetch(`/channels/${channelId}/call-chats/create`, {

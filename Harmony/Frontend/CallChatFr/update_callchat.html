@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Изменить чат звонка</title>
     <link rel="stylesheet" href="../styles.css">
+    <script type="module">
+        import { checkTokenAndRedirect } from '../Utils/authUtils.js';
+        if (!checkTokenAndRedirect()) {
+            throw new Error('Invalid token');
+        }
+    </script>
 </head>
 <body>
     <div class="container">
@@ -25,10 +31,6 @@
         const callChatId = urlParams.get('callChatId');
         const channelId = urlParams.get('channelId');
 
-        if (!token) {
-            alert('Сначала войдите в систему');
-            window.location.href = '../UserFr/login_user.html';
-        }
 
         // Загружаем данные чата звонка
         async function loadCallChat() {
@@ -41,7 +43,6 @@
             if (response.ok) {
                 const callChat = await response.json();
                 document.getElementById('name').value = callChat.name;
-                document.getElementById('isVideoEnabled').checked = callChat.isVideoEnabled;
             } else {
                 const error = await response.text();
                 alert(`Ошибка: ${error}`);
@@ -53,7 +54,6 @@
 
             const callChatData = {
                 name: document.getElementById('name').value,
-                isVideoEnabled: document.getElementById('isVideoEnabled').checked
             };
 
             const response = await fetch(`/channels/${channelId}/call-chats/put/${callChatId}`, {

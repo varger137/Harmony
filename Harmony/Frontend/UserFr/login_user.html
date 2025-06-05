@@ -1,53 +1,94 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login User</title>
-    <link rel="stylesheet" href="../styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Вход</title>
+  <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>С возвращением!</h1>
-        <form id="loginForm">
-            <label for="login">Логин</label>
-            <input type="text" id="login" required>
-            <label for="password">Пароль</label>
-            <input type="password" id="password" required>
-            <div class="nav-buttons">
-                <button type="submit">Войти</button>
-                <button onclick="window.location.href='/UserFr/register_user.html'">Зарегистрироваться</button>
-            </div>
-        </form>
-        <pre id="result"></pre>
+  <div class="auth-container">
+    <div class="auth-card">
+      <h1>С возвращением!</h1>
+      <p class="auth-subtitle">Мы так рады снова вас видеть!</p>
+      
+      <form id="loginForm" class="auth-form">
+        <div class="input-group">
+          <label for="login">Логин</label>
+          <input type="text" id="login" required>
+          <div id="loginError" class="error-message"></div>
+        </div>
+
+        <div class="input-group">
+          <label for="password">Пароль</label>
+          <input type="password" id="password" required>
+          <div class="checkbox-group">
+            <input type="checkbox" id="showPassword">
+            <label for="showPassword">Показать пароль</label>
+          </div>
+          <div id="passwordError" class="error-message"></div>
+        </div>
+
+        <button type="submit" class="auth-button">Войти</button>
+      </form>
+
+      <div class="auth-footer">
+        <span>Нужен аккаунт?</span>
+        <a href="/UserFr/register_user.html">Зарегистрироваться</a>
+      </div>
+
+      <div id="result" class="result-message"></div>
     </div>
+  </div>
 
-    <script>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      document.getElementById('loginError').textContent = '';
+      document.getElementById('passwordError').textContent = '';
+      document.getElementById('result').textContent = '';
+      document.getElementById('result').className = 'result-message';
 
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+      const login = document.getElementById('login').value;
+      const password = document.getElementById('password').value;
 
-            const login = document.getElementById('login').value;
-            const password = document.getElementById('password').value;
-
-            const response = await fetch(`/users/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ login, password })
-            });
-
-            const result = await response.json();
-            if (response.ok) {
-                if (result.token) {
-                    localStorage.setItem('token', result.token);
-                    localStorage.setItem('nickName', result.nickName); // Добавляем сохранение никнейма
-                    localStorage.setItem('userId', result.userId);
-                    window.location.href = '/UserFr/get_account.html';
-                } 
-            } 
+      try {
+        const response = await fetch(`/users/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login, password })
         });
-    </script>
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.token) {
+            localStorage.setItem('token', result.token);
+            localStorage.setItem('nickName', result.nickName);
+            localStorage.setItem('userId', result.userId);
+            localStorage.setItem('login', result.login);
+            window.location.href = '/UserFr/get_account.html';
+          }
+        } else {
+          if (response.status === 401) {
+            document.getElementById('passwordError').textContent = "Неверный логин или пароль";
+          } else {
+            const errorText = await response.text();
+            document.getElementById('result').textContent = errorText || "Ошибка при входе";
+            document.getElementById('result').className = 'error-message';
+          }
+        }
+      } catch (error) {
+        console.error('Ошибка:', error);
+        document.getElementById('result').textContent = "Ошибка подключения";
+        document.getElementById('result').className = 'error-message';
+      }
+    });
+
+    document.getElementById('showPassword').addEventListener('change', function() {
+      const passwordField = document.getElementById('password');
+      passwordField.type = this.checked ? 'text' : 'password';
+    });
+  </script>
 </body>
 </html>

@@ -17,7 +17,7 @@ public static class AuthOptions
         foreach (var pair in data)
             claims.Add(new Claim(pair.Key, pair.Value));
 
-        var expires = DateTime.UtcNow.Add(TimeSpan.FromMinutes(100));
+        var expires = DateTime.UtcNow.Add(TimeSpan.FromMinutes(3600));
         var credentials = new SigningCredentials(GetSymmetricSecurityKey(), "HS256");
 
         JwtSecurityToken tokenObj = new(

@@ -14,9 +14,12 @@ using System.Text.Json;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.SignalR;
 
+
 #region Builder
 
 var builder = WebApplication.CreateBuilder();
+
+
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
@@ -121,6 +124,7 @@ app.Map("/ws/chat/{chatId}", async context =>
         var buffer = new byte[1024 * 4];
         var messageRepository = context.RequestServices.GetRequiredService<MessageRepository>();
         var userRepository = context.RequestServices.GetRequiredService<UserRepository>();
+        var channelRepository = context.RequestServices.GetRequiredService<ChannelRepository>();
 
         while (webSocket.State == WebSocketState.Open)
         {
@@ -141,31 +145,37 @@ app.Map("/ws/chat/{chatId}", async context =>
 
                     await messageRepository.AddMessageAsync(messageDto);
 
-
                     var user = await userRepository.GetUserById(userId);
                     var nickName = user?.NickName ?? "Unknown";
-
 
                     var messageObject = new
                     {
                         Text = messageText,
                         NickName = nickName,
-                        DateTime = DateTime.UtcNow
+                        DateTime = DateTime.UtcNow,
+                        ChatId = chatGuid,
+                        ChannelId = (await channelRepository.GetChannelByChatId(chatGuid))?.Id
                     };
 
                     var messageJson = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(messageObject));
 
-
-                    foreach (var socket in webSockets.Values)
+                    // Check if ChannelId has a value before proceeding
+                    if (messageObject.ChannelId.HasValue)
                     {
-                        if (socket.State == WebSocketState.Open)
+                        // Отправляем сообщение всем участникам канала
+                        var channelUsers = await channelRepository.GetChannelUsersAsync(messageObject.ChannelId.Value);
+                        foreach (var userInChannel in channelUsers)
                         {
-                            await socket.SendAsync(
-                                new ArraySegment<byte>(messageJson),
-                                WebSocketMessageType.Text,
-                                true,
-                                CancellationToken.None
-                            );
+                            if (webSockets.TryGetValue(userInChannel.Id, out var userSocket) && 
+                                userSocket.State == WebSocketState.Open)
+                            {
+                                await userSocket.SendAsync(
+                                    new ArraySegment<byte>(messageJson),
+                                    WebSocketMessageType.Text,
+                                    true,
+                                    CancellationToken.None
+                                );
+                            }
                         }
                     }
                 }
@@ -248,15 +258,9 @@ app.MapGet("/users", async (UserRepository userRepository) =>
 });
 app.MapPut("/users/put/{id}", [Authorize] async (HttpContext ctx, UserRepository userRepository, Guid id, UpdateUserDTO userDto) =>
 {
-    if (userDto == null || string.IsNullOrWhiteSpace(userDto.Login) || string.IsNullOrWhiteSpace(userDto.Password))
+    if (userDto == null || string.IsNullOrWhiteSpace(userDto.Login))
     {
         return Results.BadRequest("Invalid user data");
-    }
-
-    var existingUser = await userRepository.GetUserById(id);
-    if (existingUser == null)
-    {
-        return Results.NotFound("User not found");
     }
 
     var userId = Guid.Parse(ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
@@ -265,8 +269,19 @@ app.MapPut("/users/put/{id}", [Authorize] async (HttpContext ctx, UserRepository
         return Results.Forbid();
     }
 
-    await userRepository.UpdateUser(id, userDto);
-    return Results.Ok("User updated successfully");
+    try
+    {
+        await userRepository.UpdateUser(id, userDto);
+        return Results.Ok("User updated successfully");
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+    catch (Exception)
+    {
+        return Results.Problem("Failed to update user");
+    }
 });
 app.MapDelete("/users/delete/{id}", [Authorize] async (HttpContext ctx, UserRepository userRepository, Guid id) =>
 {
@@ -311,17 +326,30 @@ app.MapPost("/users/login", async (UserRepository userRepository, LoginUserDTO l
     return Results.Ok(new
     {
         Token = token,
-        NickName = user.NickName, 
+        NickName = user.NickName,
+        Login = user.Login,
         userId = user.Id 
     });
 });
 app.MapGet("/users/account", [Authorize] async (UserRepository userRepository, HttpContext ctx) =>
 {
-    string login = ctx.User.FindFirst(ClaimTypes.Name)?.Value;
+    var idClaim = ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (string.IsNullOrWhiteSpace(idClaim) || !Guid.TryParse(idClaim, out var userId))
+    {
+        return Results.BadRequest("User ID not found in token");
+    }
 
-    var user = await userRepository.GetUserByLogin(login);
+    var user = await userRepository.GetUserById(userId);
+    if (user == null)
+    {
+        return Results.NotFound("User not found");
+    }
+
     return Results.Ok(user);
 });
+
+
+
 #endregion
 
 #region ChannelEndPoints

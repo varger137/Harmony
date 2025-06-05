@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Канал</title>
     <link rel="stylesheet" href="../styles.css">
+        <script type="module">
+        import { checkTokenAndRedirect } from '../Utils/authUtils.js';
+        if (!checkTokenAndRedirect()) {
+            throw new Error('Invalid token');
+        }
+    </script>
 </head>
 <body class="container">
     <h1>Информация о канале</h1>
@@ -34,10 +40,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const channelId = urlParams.get('id');
 
-        if (!token) {
-            alert('Сначала войдите в систему');
-            window.location.href = '../UserFr/login_user.html';
-        }
+
 
         document.getElementById('copyJoinLink').addEventListener('click', () => {
             const joinLinkInput = document.getElementById('joinLink');

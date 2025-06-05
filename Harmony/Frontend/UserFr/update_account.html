@@ -1,55 +1,185 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Редактирование профиля</title>
     <link rel="stylesheet" href="../styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/css/intlTelInput.min.css">
 </head>
 <body>
     <div class="container">
-        <h1>Редактирование профиля</h1>
-        <form id="updateForm">
-            <label for="login">Новый логин:</label>
-            <input type="text" id="login" required>
-            <label for="password">Новый пароль:</label>
-            <input type="password" id="password" required>
-            <label for="nickName">Новое имя:</label>
-            <input type="text" id="nickName" required>
-            <div class="nav-buttons">
-                <button type="submit">Обновить</button>
-                <button onclick="window.location.href='/UserFr/get_account.html'">Вернуться в профиль</button>
+        <div class="sidebar">
+            <h2>Навигация</h2>
+            <button onclick="window.location.href='get_account.html'">Мой профиль</button>
+            <button onclick="window.location.href='../ChannelFr/get_all_channels.html'">Мои каналы</button>
+            <button class="danger" onclick="logout()">Выйти</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="profile-section">
+                <h1>Редактирование профиля</h1>
+                
+                <form id="updateForm" class="profile-form">
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label for="login">Логин</label>
+                            <input type="text" id="login" value="vadim" required>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="nickName">Имя пользователя</label>
+                            <input type="text" id="nickName" value="vadim" required>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="phoneNumber">Номер телефона</label>
+                            <input type="tel" id="phoneNumber" value="+7 993 109-27-06">
+                        </div>
+                    </div>
+                    
+                    <div class="password-section">
+                        <h3>Смена пароля</h3>
+                        
+                        <div class="input-group">
+                            <label for="currentPassword">Текущий пароль</label>
+                            <input type="password" id="currentPassword" required>
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="newPassword">Новый пароль</label>
+                            <input type="password" id="newPassword">
+                        </div>
+                        
+                        <div class="input-group">
+                            <label for="confirmPassword">Подтвердите пароль</label>
+                            <input type="password" id="confirmPassword">
+                        </div>
+                        
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="showPasswords">
+                            <label for="showPasswords">Показать пароли</label>
+                        </div>
+                    </div>
+                    
+                    <div id="passwordError" class="error-message"></div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="primary">Сохранить изменения</button>
+                        <button type="button" onclick="window.location.href='get_account.html'" class="secondary">Отмена</button>
+                    </div>
+                </form>
             </div>
-        </form>
-        <div id="result"></div>
+        </div>
     </div>
 
+    <!-- intl-tel-input Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/js/intlTelInput.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/js/utils.js"></script>
+
     <script>
+        // Функция для парсинга JWT токена
         function parseJwt(token) {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            return JSON.parse(window.atob(base64));
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                return JSON.parse(window.atob(base64));
+            } catch (e) {
+                console.error("Ошибка парсинга токена:", e);
+                return null;
+            }
         }
 
+        // Функция для проверки сложности пароля
+        function validatePassword(password) {
+            if (!password) return true;
+            
+            const errors = [];
+            if (password.length < 8) errors.push("не менее 8 символов");
+            if (!/[A-Z]/.test(password)) errors.push("хотя бы одна заглавная буква");
+            if (!/[a-z]/.test(password)) errors.push("хотя бы одна строчная буква");
+            if (!/[0-9]/.test(password)) errors.push("хотя бы одна цифра");
+            if (!/[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]/.test(password)) {
+                errors.push("хотя бы один спецсимвол");
+            }
+            
+            return errors.length === 0 ? null : errors.join(", ");
+        }
+
+        let iti; // intl-tel-input instance
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const phoneInput = document.getElementById('phoneNumber');
+            iti = window.intlTelInput(phoneInput, {
+                initialCountry: "auto",
+                preferredCountries: ["ru", "us", "gb", "de"],
+                nationalMode: false,
+                formatOnDisplay: true,
+                geoIpLookup: function(callback) {
+                    fetch('https://ipapi.co/json')
+                        .then(res => res.json())
+                        .then(data => callback(data.country_code))
+                        .catch(() => callback('ru'));
+                },
+                utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/js/utils.js"
+            });
+
+            const currentLogin = localStorage.getItem('login');
+            const currentNickName = localStorage.getItem('nickName');
+            const currentPhoneNumber = localStorage.getItem('phoneNumber');
+
+            if (currentLogin) document.getElementById('login').value = currentLogin;
+            if (currentNickName) document.getElementById('nickName').value = currentNickName;
+            if (currentPhoneNumber && iti) {
+                iti.setNumber(currentPhoneNumber);
+            }
+        });
+
+        // Обработчик формы
         document.getElementById('updateForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const login = document.getElementById('login').value;
-            const password = document.getElementById('password').value;
-            const nickName = document.getElementById('nickName').value;
+            const login = document.getElementById('login').value.trim();
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const nickName = document.getElementById('nickName').value.trim();
+            const phoneNumber = iti.getNumber(); // международный формат
 
-            const token = localStorage.getItem('token');
-            if (!token) {
-                document.getElementById('result').textContent = "Вы должны войти в систему.";
-                window.location.href = '/UserFr/login_user.html';
+            const passwordErrorEl = document.getElementById('passwordError');
+            const resultEl = document.getElementById('result');
+            passwordErrorEl.textContent = '';
+            resultEl.textContent = '';
+            resultEl.className = '';
+
+            if (!login || !nickName || !currentPassword) {
+                passwordErrorEl.textContent = "Все поля обязательны для заполнения";
                 return;
             }
 
+            if (newPassword && newPassword !== confirmPassword) {
+                passwordErrorEl.textContent = "Новый пароль и подтверждение не совпадают";
+                return;
+            }
 
+            if (newPassword) {
+                const passwordError = validatePassword(newPassword);
+                if (passwordError) {
+                    passwordErrorEl.textContent = `Пароль должен содержать: ${passwordError}`;
+                    return;
+                }
+            }
+
+            const token = localStorage.getItem('token');
             const decodedToken = parseJwt(token);
+            if (!decodedToken) {
+                passwordErrorEl.textContent = "Ошибка авторизации";
+                return;
+            }
+
             const userId = decodedToken['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'];
 
-
+            try {
                 const response = await fetch(`/users/put/${userId}`, {
                     method: 'PUT',
                     headers: {
@@ -58,24 +188,43 @@
                     },
                     body: JSON.stringify({
                         login: login,
-                        password: password,
-                        nickName: nickName
+                        oldPassword: currentPassword,
+                        newPassword: newPassword || null,
+                        nickName: nickName,
+                        phoneNumber: phoneNumber || null
                     })
                 });
-                
-                if (response.ok) {
-                    document.getElementById('result').textContent = "Профиль успешно обновлен!";
-                } else {
-                    const error = await response.text();
-                    document.getElementById('result').textContent = `Ошибка: ${error || 'Не удалось обновить профиль'}`;
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    if (response.status === 400) {
+                        passwordErrorEl.textContent = errorData.message || 'Неверный текущий пароль!';
+                    } else {
+                        passwordErrorEl.textContent = 'Ошибка сервера: ' + (errorData.message || response.statusText);
+                    }
+                    return;
                 }
-            } 
-        );
 
+                // Успешно
+                localStorage.setItem('login', login);
+                localStorage.setItem('nickName', nickName);
+                localStorage.setItem('phoneNumber', phoneNumber);
 
-        if (!localStorage.getItem('token')) {
-            window.location.href = '/UserFr/login_user.html';
-        }
+                resultEl.textContent = "Профиль успешно обновлен!";
+                resultEl.className = 'success-message';
+                window.location.href = '/UserFr/get_account.html';
+
+            } catch (error) {
+                console.error("Ошибка при выполнении запроса:", error);
+                passwordErrorEl.textContent = "Ошибка соединения: " + error.message;
+            }
+        });
+
+        // Показ пароля
+        document.getElementById('showNewPassword').addEventListener('change', function () {
+            const passwordField = document.getElementById('newPassword');
+            passwordField.type = this.checked ? 'text' : 'password';
+        });
     </script>
 </body>
 </html>

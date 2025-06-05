@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Редактировать канал</title>
     <link rel="stylesheet" href="../styles.css">
+        <script type="module">
+        import { checkTokenAndRedirect } from '../Utils/authUtils.js';
+        if (!checkTokenAndRedirect()) {
+            throw new Error('Invalid token');
+        }
+    </script>
 </head>
 <body>
     <div class="container">
@@ -26,10 +32,6 @@
         const urlParams = new URLSearchParams(window.location.search);
         const channelId = urlParams.get('id');
 
-        if (!token) {
-            alert('Сначала войдите в систему');
-            window.location.href = '../UserFr/login_user.html';
-        }
         
         document.querySelector('button[onclick*="get_channel.html"]')
         .setAttribute('onclick', `window.location.href='get_channel.html?id=${channelId}'`);

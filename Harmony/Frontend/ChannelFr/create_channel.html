@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Создать канал</title>
     <link rel="stylesheet" href="../styles.css">
+        <script type="module">
+        import { checkTokenAndRedirect } from '../Utils/authUtils.js';
+        if (!checkTokenAndRedirect()) {
+            throw new Error('Invalid token');
+        }
+    </script>
 </head>
 <body>
     <div class="container">
@@ -24,10 +30,6 @@
     <script>
         const token = localStorage.getItem('token');
 
-        if (!token) {
-            alert('Сначала войдите в систему');
-            window.location.href = '../UserFr/login_user.html';
-        }
 
         document.getElementById('createChannelForm').addEventListener('submit', async (e) => {
             e.preventDefault();
