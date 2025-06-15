@@ -5,34 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Канал</title>
     <link rel="stylesheet" href="../styles.css">
-        <script type="module">
+    <script type="module">
         import { checkTokenAndRedirect } from '../Utils/authUtils.js';
         if (!checkTokenAndRedirect()) {
             throw new Error('Invalid token');
         }
     </script>
 </head>
-<body class="container">
-    <h1>Информация о канале</h1>
-    <div id="channelInfo" class="card"></div>
-    
-    <div class="nav-buttons">
-        <p>Работа с проектом:
-            <button id="updateChannelButton">Изменить канал</button>
-            <button id="confirmDelete">Удалить канал</button>
-        </p>
-        <p>Работа с чатами:
-            <button id="createChatButton">Создать чат</button>
-            <button id="createCallChatButton">Создать чат звонка</button>
-        </p>
-
-        <br>
-        <p>ID для присоединения:  <input type="text" id="joinLink" readonly>
-            <button id="copyJoinLink">Скопировать ID для присоединения</button></p>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>Навигация</h2>
+            <button onclick="window.location.href='../UserFr/get_account.html'">Мой профиль</button>
+            <button onclick="window.location.href='get_all_channels.html'">Мои каналы</button>
+            <button class="danger" onclick="logout()">Выйти</button>
+        </div>
         
-        <br>
-        <button onclick="window.location.href='get_all_channels.html'">Назад к списку каналов</button>
-        <button onclick="window.location.href='../UserFr/get_account.html'">Вернуться в профиль</button>
+        <div class="main-content">
+            <div class="profile-section">
+                <h1>Информация о канале</h1>
+                <div id="channelInfo"></div>
+            </div>
+            
+            <div class="channels-section">
+                <h2>Управление каналом</h2>
+                <div class="control-panel">
+                    <h3>Действия с каналом</h3>
+                    <div class="button-group">
+                        <button id="updateChannelButton" class="primary">Изменить канал</button>
+                        <button id="confirmDelete" class="danger">Удалить канал</button>
+                        <button id="leaveChannelButton" class="danger" style="display: none;">Покинуть канал</button>
+                    </div>
+                    
+                    <div class="join-id-container" style="margin-top: 20px;">
+                        <h3>ID для присоединения</h3>
+                        <input type="text" id="joinLink" class="join-id-input" readonly>
+                        <button id="copyJoinLink" class="copy-button">Скопировать</button>
+                    </div>
+                </div>
+                
+                <div class="control-panel">
+                    <h3>Управление чатами</h3>
+                    <div class="button-group">
+                        <button id="createChatButton" class="primary">Создать чат</button>
+                        <button id="createCallChatButton" class="primary">Создать чат звонка</button>
+                    </div>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button onclick="window.location.href='get_all_channels.html'" class="nav-button">
+                        <span>Назад к списку каналов</span>
+                    </button>
+                    <button onclick="window.location.href='../UserFr/get_account.html'" class="nav-button">
+                        <span>Вернуться в профиль</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script>
@@ -40,7 +69,10 @@
         const urlParams = new URLSearchParams(window.location.search);
         const channelId = urlParams.get('id');
 
-
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/UserFr/login_user.html';
+        }
 
         document.getElementById('copyJoinLink').addEventListener('click', () => {
             const joinLinkInput = document.getElementById('joinLink');
@@ -159,7 +191,7 @@
         }
 
         async function loadChannel() {
-            const userId = localStorage.getItem('userId'); // Получаем ID текущего пользователя
+            const userId = localStorage.getItem('userId');
             const response = await fetch(`/channels/${channelId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -182,40 +214,79 @@
                 // Скрываем/показываем кнопки управления
                 document.getElementById('updateChannelButton').style.display = isOwner ? 'inline-block' : 'none';
                 document.getElementById('confirmDelete').style.display = isOwner ? 'inline-block' : 'none';
+                document.getElementById('leaveChannelButton').style.display = isOwner ? 'none' : 'inline-block';
                 document.getElementById('createChatButton').style.display = isOwner ? 'inline-block' : 'none';
                 document.getElementById('createCallChatButton').style.display = isOwner ? 'inline-block' : 'none';
 
                 channelInfo.innerHTML = `
-                    <h2>${channel.name}</h2>
-                    <p>${channel.description || 'Нет описания'}</p>
-                    <p>Создатель: ${channel.ownerNickName}</p>
-                    <p>Дата создания: ${new Date(channel.createdAt).toLocaleDateString()}</p>
+                    <div class="channel-meta">
+                        <div class="channel-meta-item">
+                            <span class="channel-meta-label">Создатель</span>
+                            <span class="channel-meta-value">${channel.ownerNickName}</span>
+                        </div>
+                        <div class="channel-meta-item">
+                            <span class="channel-meta-label">Дата создания</span>
+                            <span class="channel-meta-value">${new Date(channel.createdAt).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                    <div class="channel-description">
+                        <h3>Описание</h3>
+                        <p>${channel.description || 'Нет описания'}</p>
+                    </div>
                     
-                    <h3>Чаты:</h3>
-                    ${channel.chats?.length > 0 ? 
-                        `<ul>${channel.chats.map(chat => `<li>${chat.name}
-                            <button onclick="window.location.href='../ChatFr/chat.html?chatId=${chat.id}&channelId=${channel.id}'">Войти в чат</button>
-                            ${isOwner ? `
-                            <button onclick="window.location.href='../ChatFr/update_chat.html?chatId=${chat.id}&channelId=${channel.id}'">Изменить</button>
-                            <button onclick="deleteChat('${chat.id}', '${channel.id}')">Удалить</button>
-                            ` : ''}
-                        </li>`).join('')}</ul>` : 
-                        '<p>Нет чатов</p>'
-                    }
-
-                    <h3>Чаты звонков:</h3>
-                    ${channel.callChats?.length > 0 ? 
-                        `<ul>${channel.callChats.map(callChat => `<li>${callChat.name}
-                            <button onclick="window.location.href='../CallChatFr/call.html?callChatId=${callChat.id}&channelId=${channel.id}'">
-                                Присоединиться
-                            </button>
-                            ${isOwner ? `
-                            <button onclick="window.location.href='../CallChatFr/update_callchat.html?callChatId=${callChat.id}&channelId=${channel.id}'">Изменить</button>
-                            <button onclick="deleteCallChat('${callChat.id}', '${channel.id}')">Удалить</button>
-                            ` : ''}
-                        </li>`).join('')}</ul>` : 
-                        '<p>Нет чатов звонков</p>'
-                    }
+                    <div class="channel-section">
+                        <h2>Чаты</h2>
+                        ${channel.chats?.length > 0 ? 
+                            `<div class="chat-list">
+                                ${channel.chats.map(chat => `
+                                <div class="chat-item">
+                                    <div class="chat-name">${chat.name}</div>
+                                    <div class="chat-actions">
+                                        <button onclick="window.location.href='../ChatFr/chat.html?chatId=${chat.id}&channelId=${channel.id}'" class="action-button">
+                                            Войти в чат
+                                        </button>
+                                        ${isOwner ? `
+                                        <button onclick="window.location.href='../ChatFr/update_chat.html?chatId=${chat.id}&channelId=${channel.id}'" class="action-button secondary">
+                                            Изменить
+                                        </button>
+                                        <button onclick="deleteChat('${chat.id}', '${channel.id}')" class="action-button danger">
+                                            Удалить
+                                        </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                `).join('')}
+                            </div>` : 
+                            '<p>Нет чатов</p>'
+                        }
+                    </div>
+                    
+                    <div class="channel-section">
+                        <h2>Чаты звонков</h2>
+                        ${channel.callChats?.length > 0 ? 
+                            `<div class="chat-list">
+                                ${channel.callChats.map(callChat => `
+                                <div class="chat-item">
+                                    <div class="chat-name">${callChat.name}</div>
+                                    <div class="chat-actions">
+                                        <button onclick="window.location.href='../CallChatFr/call.html?callChatId=${callChat.id}&channelId=${channel.id}'" class="action-button">
+                                            Присоединиться
+                                        </button>
+                                        ${isOwner ? `
+                                        <button onclick="window.location.href='../CallChatFr/update_callchat.html?callChatId=${callChat.id}&channelId=${channel.id}'" class="action-button secondary">
+                                            Изменить
+                                        </button>
+                                        <button onclick="deleteCallChat('${callChat.id}', '${channel.id}')" class="action-button danger">
+                                            Удалить
+                                        </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                `).join('')}
+                            </div>` : 
+                            '<p>Нет чатов звонков</p>'
+                        }
+                    </div>
                 `;
 
                 document.getElementById('joinLink').value = `${channelId}`;
@@ -223,6 +294,25 @@
                 alert('Ошибка при загрузке канала');
             }
         }
+
+        document.getElementById('leaveChannelButton').addEventListener('click', async () => {
+            if (confirm("Вы уверены, что хотите покинуть этот канал?")) {
+                const response = await fetch(`/channels/${channelId}/leave`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    alert('Вы успешно покинули канал!');
+                    window.location.href = 'get_all_channels.html';
+                } else {
+                    const error = await response.text();
+                    alert(`Ошибка: ${error}`);
+                }
+            }
+        });
 
         loadChannel();
     </script>

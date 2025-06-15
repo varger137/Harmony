@@ -14,15 +14,29 @@
 </head>
 <body>
     <div class="container">
-        <h1>Изменить чат звонка</h1>
-        <form id="updateCallChatForm">
-            <label for="name">Название:</label>
-            <input type="text" id="name" required><br>
-            <div class="nav-buttons">
-                <button type="submit">Сохранить изменения</button>
-                <button onclick="window.location.href=`../ChannelFr/get_channel.html?id=${channelId}`">Назад к каналу</button>
+        <div class="sidebar">
+            <h2>Навигация</h2>
+            <button onclick="window.location.href='../UserFr/get_account.html'">Профиль</button>
+            <button onclick="goBackToChannel()">К каналу</button>
+            <button class="danger" onclick="logout()">Выйти</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="profile-section">
+                <h1>Изменить чат звонка</h1>
+                <form id="updateCallChatForm" class="profile-form">
+                    <div class="input-group">
+                        <label for="name">Название</label>
+                        <input type="text" id="name" required>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" onclick="goBackToChannel()" class="secondary">Отмена</button>
+                        <button type="submit" class="primary">Сохранить</button>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 
     <script>
@@ -31,21 +45,35 @@
         const callChatId = urlParams.get('callChatId');
         const channelId = urlParams.get('channelId');
 
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/UserFr/login_user.html';
+        }
 
-        // Загружаем данные чата звонка
-        async function loadCallChat() {
-            const response = await fetch(`/channels/${channelId}/call-chats/${callChatId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.ok) {
-                const callChat = await response.json();
-                document.getElementById('name').value = callChat.name;
+        function goBackToChannel() {
+            if (channelId) {
+                window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
             } else {
-                const error = await response.text();
-                alert(`Ошибка: ${error}`);
+                alert('Ошибка: ID канала не найден');
+            }
+        }
+
+        async function loadCallChat() {
+            try {
+                const response = await fetch(`/channels/${channelId}/call-chats/${callChatId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const callChat = await response.json();
+                    document.getElementById('name').value = callChat.name;
+                } else {
+                    const error = await response.text();
+                    alert(`Ошибка: ${error}`);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка загрузки чата звонка');
             }
         }
 
@@ -53,24 +81,29 @@
             e.preventDefault();
 
             const callChatData = {
-                name: document.getElementById('name').value,
+                name: document.getElementById('name').value
             };
 
-            const response = await fetch(`/channels/${channelId}/call-chats/put/${callChatId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(callChatData)
-            });
+            try {
+                const response = await fetch(`/channels/${channelId}/call-chats/put/${callChatId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(callChatData)
+                });
 
-            if (response.ok) {
-                alert('Чат звонка успешно обновлен!');
-                window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
-            } else {
-                const error = await response.text();
-                alert(`Ошибка: ${error}`);
+                if (response.ok) {
+                    alert('Изменения сохранены!');
+                    goBackToChannel();
+                } else {
+                    const error = await response.text();
+                    alert(`Ошибка: ${error}`);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка при сохранении');
             }
         });
 

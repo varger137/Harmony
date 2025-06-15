@@ -29,7 +29,7 @@
             </div>
             
             <div class="channels-section">
-                <h2>Мои каналы</h2>
+                <h2>Мои созданные каналы</h2>
                 <div id="channelsList" class="channel-list"></div>
             </div>
         </div>
@@ -106,8 +106,9 @@
         async function deleteAccount() {
             if (confirm("Вы уверены, что хотите удалить свою учетную запись? Это действие невозможно отменить!")) {
                 const token = localStorage.getItem('token');
+                const userId = localStorage.getItem('userId');
                 try {
-                    const response = await fetch(`/users/delete`, {
+                    const response = await fetch(`/users/delete/${userId}`, {
                         method: 'DELETE',
                         headers: { 'Authorization': `Bearer ${token}` }
                     });

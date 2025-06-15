@@ -1,25 +1,87 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Комната чата</title>
-    <link rel="stylesheet" href="../styles.css"> 
-        <script type="module">
+    <link rel="stylesheet" href="../styles.css">
+    <script type="module">
         import { checkTokenAndRedirect } from '../Utils/authUtils.js';
         if (!checkTokenAndRedirect()) {
             throw new Error('Invalid token');
         }
     </script>
+    <style>
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 200px);
+            max-height: 600px;
+            background: #2f2d2d;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        #chat {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .message {
+            background: #474747;
+            padding: 12px 16px;
+            border-radius: 8px;
+            max-width: 70%;
+            word-wrap: break-word;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .message-input-container {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            background: #3b3939;
+            border-top: 1px solid #4c4a4a;
+        }
+        
+        #messageInput {
+            flex-grow: 1;
+            padding: 12px 16px;
+            border: 2px solid #6b6a6a;
+            border-radius: 8px;
+            background: #2f2d2d;
+            color: #E0DDE2;
+        }
+        
+        #sendButton {
+            padding: 12px 24px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <h1 id="chatTitle"></h1>
-        <div id="chat" class="card"></div>
-        <div class="nav-buttons">
-            <input type="text" id="messageInput" placeholder="Введите сообщение...">
-            <button id="sendButton">Отправить</button>
-            <p><button onclick="window.location.href='../ChannelFr/get_channel.html?id=' + channelId">Назад к проекту</button></p>
+        <div class="sidebar">
+            <h2>Навигация</h2>
+            <button onclick="window.location.href='../UserFr/get_account.html'">Мой профиль</button>
+            <button onclick="goBackToChannel()">Назад к каналу</button>
+            <button class="danger" onclick="logout()">Выйти</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="profile-section">
+                <h1 id="chatTitle">Чат</h1>
+                <div class="chat-container">
+                    <div id="chat" class="card"></div>
+                    <div class="message-input-container">
+                        <input type="text" id="messageInput" placeholder="Введите сообщение...">
+                        <button id="sendButton" class="primary">Отправить</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -54,7 +116,18 @@
             }
         }
 
+        function goBackToChannel() {
+    if (channelId) {
+        window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
+    } else {
+        alert('Ошибка: ID канала не найден');
+    }
+}
 
+function logout() {
+    localStorage.clear();
+    window.location.href = '/UserFr/login_user.html';
+}
 
         async function loadChatInfo() {
             try {
@@ -115,7 +188,7 @@
             }
         }
 
-        const ws = new WebSocket(`wss://100.123.244.108:5091/ws/chat/${chatId}?token=${token}`);
+        const ws = new WebSocket(`wss://212.220.115.120:5091/ws/chat/${chatId}?token=${token}`);
 
         ws.onopen = async () => {
             console.log('WebSocket connection established');

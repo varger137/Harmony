@@ -6,55 +6,89 @@
   <title>Регистрация</title>
   <link rel="stylesheet" href="../styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/css/intlTelInput.css">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      background-color: #353434;
+    }
+    
+    .auth-container {
+      width: 100%;
+      max-width: 500px;
+    }
+    
+    .auth-card {
+      width: 100%;
+      padding: 30px;
+      box-sizing: border-box;
+      background: #2f2d2d;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .auth-content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+  </style>
 </head>
 <body>
   <div class="auth-container">
     <div class="auth-card">
-      <h1>Создать аккаунт</h1>
-      
-      <form id="registerForm" class="auth-form">
-        <div class="input-group">
-          <label for="login">Логин</label>
-          <input type="text" id="login" required>
-          <div id="loginError" class="error-message"></div>
-        </div>
-
-        <div class="input-group">
-          <label for="password">Пароль</label>
-          <input type="password" id="password" required>
-          <div id="passwordError" class="error-message"></div>
-        </div>
-
-        <div class="input-group">
-          <label for="confirmPassword">Подтвердите пароль</label>
-          <input type="password" id="confirmPassword" required>
-          <div class="checkbox-group">
-            <input type="checkbox" id="showPassword">
-            <label for="showPassword">Показать пароль</label>
+      <div class="auth-content">
+        <h1>Создать аккаунт</h1>
+        
+        <form id="registerForm" class="auth-form">
+          <div class="input-group">
+            <label for="login">Логин</label>
+            <input type="text" id="login" required>
+            <div id="loginError" class="error-message"></div>
           </div>
+
+          <div class="input-group">
+            <label for="password">Пароль</label>
+            <input type="password" id="password" required>
+            <div id="passwordError" class="error-message"></div>
+          </div>
+
+          <div class="input-group">
+            <label for="confirmPassword">Подтвердите пароль</label>
+            <input type="password" id="confirmPassword" required>
+            <div class="checkbox-group">
+              <input type="checkbox" id="showPassword">
+              <label for="showPassword">Показать пароль</label>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="nickName">Имя (показывается всем)</label>
+            <input type="text" id="nickName" required>
+            <div id="nickNameError" class="error-message"></div>
+          </div>
+
+          <div class="input-group">
+            <label for="phoneNumber">Номер телефона (необязательно)</label>
+            <input type="tel" id="phoneNumber">
+            <div id="phoneNumberError" class="error-message"></div>
+          </div>
+
+          <button type="submit" class="auth-button">Продолжить</button>
+        </form>
+
+        <div class="auth-footer">
+          <span>Уже есть аккаунт?</span>
+          <a href="/UserFr/login_user.html">Войти</a>
         </div>
 
-        <div class="input-group">
-          <label for="nickName">Имя (показывается всем)</label>
-          <input type="text" id="nickName" required>
-          <div id="nickNameError" class="error-message"></div>
-        </div>
-
-        <div class="input-group">
-          <label for="phoneNumber">Номер телефона (необязательно)</label>
-          <input type="tel" id="phoneNumber">
-          <div id="phoneNumberError" class="error-message"></div>
-        </div>
-
-        <button type="submit" class="auth-button">Продолжить</button>
-      </form>
-
-      <div class="auth-footer">
-        <span>Уже есть аккаунт?</span>
-        <a href="/UserFr/login_user.html">Войти</a>
+        <div id="result" class="result-message"></div>
       </div>
-
-      <div id="result" class="result-message"></div>
     </div>
   </div>
 
@@ -137,6 +171,14 @@
         console.error('Ошибка:', error);
         document.getElementById('result').textContent = "Ошибка подключения";
         document.getElementById('result').className = 'error-message';
+      }
+
+      
+    });
+
+        document.addEventListener('DOMContentLoaded', () => {
+      if (localStorage.getItem('token')) {
+        window.location.href = '/UserFr/get_account.html';
       }
     });
   </script>

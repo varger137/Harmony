@@ -6,6 +6,15 @@
     <title>Редактирование профиля</title>
     <link rel="stylesheet" href="../styles.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/css/intlTelInput.min.css">
+    <style>
+        .error-message {
+            color: #ff4444;
+            margin: 10px 0;
+            padding: 10px;
+
+            border-radius: 4px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -78,7 +87,6 @@
     <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/js/utils.js"></script>
 
     <script>
-        // Функция для парсинга JWT токена
         function parseJwt(token) {
             try {
                 const base64Url = token.split('.')[1];
@@ -90,7 +98,11 @@
             }
         }
 
-        // Функция для проверки сложности пароля
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/UserFr/login_user.html';
+        }
+
         function validatePassword(password) {
             if (!password) return true;
             
@@ -106,7 +118,7 @@
             return errors.length === 0 ? null : errors.join(", ");
         }
 
-        let iti; // intl-tel-input instance
+        let iti;
 
         document.addEventListener('DOMContentLoaded', () => {
             const phoneInput = document.getElementById('phoneNumber');
@@ -116,14 +128,26 @@
                 nationalMode: false,
                 formatOnDisplay: true,
                 geoIpLookup: function(callback) {
+                    // Пробуем определить страну по IP
                     fetch('https://ipapi.co/json')
-                        .then(res => res.json())
-                        .then(data => callback(data.country_code))
-                        .catch(() => callback('ru'));
+                        .then(res => {
+                            if (!res.ok) throw new Error('Failed to fetch');
+                            return res.json();
+                        })
+                        .then(data => {
+                            localStorage.setItem('countryCode', data.country_code);
+                            callback(data.country_code);
+                        })
+                        .catch(() => {
+                            // Fallback: используем значение из localStorage или 'ru'
+                            const savedCountry = localStorage.getItem('countryCode') || 'ru';
+                            callback(savedCountry);
+                        });
                 },
                 utilsScript: "https://cdn.jsdelivr.net/npm/intl-tel-input@18.1.1/build/js/utils.js"
             });
 
+            // Заполняем поля из localStorage
             const currentLogin = localStorage.getItem('login');
             const currentNickName = localStorage.getItem('nickName');
             const currentPhoneNumber = localStorage.getItem('phoneNumber');
@@ -133,6 +157,18 @@
             if (currentPhoneNumber && iti) {
                 iti.setNumber(currentPhoneNumber);
             }
+
+            // Обработчик показа паролей
+            document.getElementById('showPasswords').addEventListener('change', function() {
+                const currentPassword = document.getElementById('currentPassword');
+                const newPassword = document.getElementById('newPassword');
+                const confirmPassword = document.getElementById('confirmPassword');
+                
+                const type = this.checked ? 'text' : 'password';
+                currentPassword.type = type;
+                newPassword.type = type;
+                confirmPassword.type = type;
+            });
         });
 
         // Обработчик формы
@@ -144,13 +180,11 @@
             const newPassword = document.getElementById('newPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
             const nickName = document.getElementById('nickName').value.trim();
-            const phoneNumber = iti.getNumber(); // международный формат
+            const phoneNumber = iti.getNumber();
 
             const passwordErrorEl = document.getElementById('passwordError');
-            const resultEl = document.getElementById('result');
             passwordErrorEl.textContent = '';
-            resultEl.textContent = '';
-            resultEl.className = '';
+            passwordErrorEl.className = 'error-message';
 
             if (!login || !nickName || !currentPassword) {
                 passwordErrorEl.textContent = "Все поля обязательны для заполнения";
@@ -197,11 +231,7 @@
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    if (response.status === 400) {
-                        passwordErrorEl.textContent = errorData.message || 'Неверный текущий пароль!';
-                    } else {
-                        passwordErrorEl.textContent = 'Ошибка сервера: ' + (errorData.message || response.statusText);
-                    }
+                    passwordErrorEl.textContent = errorData.message || 'Ошибка при обновлении профиля';
                     return;
                 }
 
@@ -210,20 +240,19 @@
                 localStorage.setItem('nickName', nickName);
                 localStorage.setItem('phoneNumber', phoneNumber);
 
-                resultEl.textContent = "Профиль успешно обновлен!";
-                resultEl.className = 'success-message';
-                window.location.href = '/UserFr/get_account.html';
+                // Показываем успешное сообщение через passwordErrorEl
+                passwordErrorEl.textContent = "Профиль успешно обновлен!";
+                passwordErrorEl.className = 'success-message';
+                
+                // Перенаправляем через 2 секунды
+                setTimeout(() => {
+                    window.location.href = '/UserFr/get_account.html';
+                }, 2000);
 
             } catch (error) {
                 console.error("Ошибка при выполнении запроса:", error);
                 passwordErrorEl.textContent = "Ошибка соединения: " + error.message;
             }
-        });
-
-        // Показ пароля
-        document.getElementById('showNewPassword').addEventListener('change', function () {
-            const passwordField = document.getElementById('newPassword');
-            passwordField.type = this.checked ? 'text' : 'password';
         });
     </script>
 </body>

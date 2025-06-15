@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Создать чат</title>
     <link rel="stylesheet" href="../styles.css">
-        <script type="module">
+    <script type="module">
         import { checkTokenAndRedirect } from '../Utils/authUtils.js';
         if (!checkTokenAndRedirect()) {
             throw new Error('Invalid token');
@@ -14,15 +14,29 @@
 </head>
 <body>
     <div class="container">
-        <h1>Создать новый чат</h1>
-        <form id="createChatForm">
-            <label for="name">Название:</label>
-            <input type="text" id="name" required><br>
-            <div class="nav-buttons">
-                <button type="submit">Создать</button>
-                <button id="backToChannelButton">Отмена</button>
+        <div class="sidebar">
+            <h2>Навигация</h2>
+            <button onclick="window.location.href='../UserFr/get_account.html'">Профиль</button>
+            <button onclick="goBackToChannel()">К каналу</button>
+            <button class="danger" onclick="logout()">Выйти</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="profile-section">
+                <h1>Создать чат</h1>
+                <form id="createChatForm" class="profile-form">
+                    <div class="input-group">
+                        <label for="name">Название чата</label>
+                        <input type="text" id="name" required class="form-input">
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" onclick="goBackToChannel()" class="secondary">Отмена</button>
+                        <button type="submit" class="primary">Создать</button>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 
     <script>
@@ -30,16 +44,17 @@
         const urlParams = new URLSearchParams(window.location.search);
         const channelId = urlParams.get('channelId');
 
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/UserFr/login_user.html';
+        }
 
-        // Обновляем ссылку в кнопке "Отмена"
-        const backToChannelButton = document.getElementById('backToChannelButton');
-        if (channelId) {
-            backToChannelButton.setAttribute(
-                'onclick', 
-                `window.location.href='../ChannelFr/get_channel.html?id=${channelId}'`
-            );
-        } else {
-            alert('Ошибка: ID канала не найден');
+        function goBackToChannel() {
+            if (channelId) {
+                window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
+            } else {
+                alert('Ошибка: ID канала не найден');
+            }
         }
 
         document.getElementById('createChatForm').addEventListener('submit', async (e) => {
@@ -49,21 +64,26 @@
                 name: document.getElementById('name').value
             };
 
-            const response = await fetch(`/channels/${channelId}/chats/create`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(chatData)
-            });
+            try {
+                const response = await fetch(`/channels/${channelId}/chats/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(chatData)
+                });
 
-            if (response.ok) {
-                alert('Чат успешно создан!');
-                window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
-            } else {
-                const error = await response.text();
-                alert(`Ошибка: ${error}`);
+                if (response.ok) {
+                    alert('Чат создан!');
+                    window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
+                } else {
+                    const error = await response.text();
+                    alert(`Ошибка: ${error}`);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка при создании чата');
             }
         });
     </script>

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Все каналы</title>
     <link rel="stylesheet" href="../styles.css">
-        <script type="module">
+    <script type="module">
         import { checkTokenAndRedirect } from '../Utils/authUtils.js';
         if (!checkTokenAndRedirect()) {
             throw new Error('Invalid token');
@@ -14,25 +14,52 @@
 </head>
 <body>
     <div class="container">
-        <h1>Список всех каналов</h1>
-        <div id="channelsList"></div>
-        <div class="nav-buttons">
-            <button onclick="window.location.href='create_channel.html'">Создать новый канал</button>
+        <div class="sidebar">
+            <h2>Навигация</h2>
+            <button onclick="window.location.href='../UserFr/get_account.html'">Мой профиль</button>
+            <button onclick="window.location.href='get_all_channels.html'" class="active">Мои каналы</button>
+            <button class="danger" onclick="logout()">Выйти</button>
         </div>
-        <br>
-        <div>
-       
-            <input type="text" id="channelIdInput" placeholder="Введите ID канала">
-            <button id="joinChannelButton">Присоединиться к каналу</button>
+        
+        <div class="main-content">
+            <div class="profile-section">
+                <h1>Мои каналы</h1>
+                <div id="channelsList" class="channel-list"></div>
+            </div>
             
-            <p><button onclick="window.location.href='../UserFr/get_account.html'">Вернуться в профиль</button></p>
-            
+            <div class="channels-section">
+                <h2>Управление каналами</h2>
+                
+                <div class="control-panel">
+                    <button onclick="window.location.href='create_channel.html'" class="primary">
+                        Создать новый канал
+                    </button>
+                </div>
+                
+                <div class="control-panel">
+                    <h3>Присоединиться к каналу</h3>
+                    <div class="join-channel-group">
+                        <input type="text" id="channelIdInput" placeholder="Введите ID канала" class="join-id-input">
+                        <button id="joinChannelButton" class="copy-button">Присоединиться</button>
+                    </div>
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button onclick="window.location.href='../UserFr/get_account.html'" class="nav-button">
+                        <span>Вернуться в профиль</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         const token = localStorage.getItem('token');
 
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/UserFr/login_user.html';
+        }
 
         async function loadChannels() {
             const response = await fetch(`/channels`, {
@@ -49,21 +76,28 @@
             if (response.ok) {
                 const channels = await response.json();
                 const channelsList = document.getElementById('channelsList');
-                
+                channelsList.innerHTML = '';
+
                 if (channels.length === 0) {
-                    channelsList.innerHTML = '<p>Вы пока не присоеденились ни к одному каналу</p>';
+                    channelsList.innerHTML = '<p class="empty-message">Вы пока не присоединились ни к одному каналу</p>';
                     return;
                 }
-                
+
                 channels.forEach(channel => {
-                    const channelDiv = document.createElement('div');
-                    channelDiv.innerHTML = `
-                        <h3>${channel.name}</h3>
-                        <p>${channel.description || 'Нет описания'}</p>
-                        <button onclick="window.location.href='get_channel.html?id=${channel.id}'">Подробнее</button>
-                        <hr>
+                    const channelCard = document.createElement('div');
+                    channelCard.className = 'channel-card';
+                    channelCard.innerHTML = `
+                        <div class="channel-card-content">
+                            <h3>${channel.name}</h3>
+                            <p>${channel.description || 'Нет описания'}</p>
+                            <div class="channel-actions">
+                                <button onclick="window.location.href='get_channel.html?id=${channel.id}'" class="action-button">
+                                    Открыть канал
+                                </button>
+                            </div>
+                        </div>
                     `;
-                    channelsList.appendChild(channelDiv);
+                    channelsList.appendChild(channelCard);
                 });
             } else {
                 alert('Ошибка при загрузке каналов');
@@ -71,7 +105,7 @@
         }
 
         document.getElementById('joinChannelButton').addEventListener('click', async () => {
-            const channelId = document.getElementById('channelIdInput').value;
+            const channelId = document.getElementById('channelIdInput').value.trim();
             if (!channelId) {
                 alert('Введите ID канала');
                 return;
@@ -86,10 +120,10 @@
 
             if (response.ok) {
                 alert('Вы успешно присоединились к каналу!');
-                loadChannels(); 
+                loadChannels();
             } else {
-                const statusCode = response.status;
-                alert(`Ошибка ${statusCode}`);
+                const error = await response.text();
+                alert(`Ошибка: ${error}`);
             }
         });
 

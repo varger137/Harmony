@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Редактировать канал</title>
     <link rel="stylesheet" href="../styles.css">
-        <script type="module">
+    <script type="module">
         import { checkTokenAndRedirect } from '../Utils/authUtils.js';
         if (!checkTokenAndRedirect()) {
             throw new Error('Invalid token');
@@ -14,17 +14,38 @@
 </head>
 <body>
     <div class="container">
-        <h1>Редактирование канала</h1>
-        <form id="updateChannelForm">
-            <label for="name">Название:</label>
-            <input type="text" id="name" required>
-            <label for="description">Описание:</label>
-            <textarea id="description"></textarea>
-            <div class="nav-buttons">
-                <button type="submit">Сохранить изменения</button>
-                <button onclick="window.location.href='get_channel.html?id=${channelId}'">Назад к каналу</button>
+        <div class="sidebar">
+            <h2>Навигация</h2>
+            <button onclick="window.location.href='../UserFr/get_account.html'">Мой профиль</button>
+            <button onclick="window.location.href='get_all_channels.html'">Мои каналы</button>
+            <button class="danger" onclick="logout()">Выйти</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="profile-section">
+                <h1>Редактирование канала</h1>
+                <form id="updateChannelForm" class="form-container">
+                    <div class="input-field">
+                        <label for="name">Название канала</label>
+                        <input type="text" id="name" required placeholder="Введите название">
+                    </div>
+                    
+                    <div class="input-field">
+                        <label for="description">Описание</label>
+                        <textarea id="description" placeholder="Добавьте описание канала"></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" onclick="goBackToChannel()" class="secondary">
+                            Отмена
+                        </button>
+                        <button type="submit" class="primary">
+                            Сохранить изменения
+                        </button>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 
     <script>
@@ -32,28 +53,36 @@
         const urlParams = new URLSearchParams(window.location.search);
         const channelId = urlParams.get('id');
 
-        
-        document.querySelector('button[onclick*="get_channel.html"]')
-        .setAttribute('onclick', `window.location.href='get_channel.html?id=${channelId}'`);
-
-
-
-        async function loadChannel() {
-            const response = await fetch(`/channels/${channelId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.ok) {
-                const channel = await response.json();
-                document.getElementById('name').value = channel.name;
-                document.getElementById('description').value = channel.description || '';
-            } else {
-                alert('Ошибка при загрузке канала');
-            }
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/UserFr/login_user.html';
         }
 
+        function goBackToChannel() {
+            window.location.href = `get_channel.html?id=${channelId}`;
+        }
+
+        async function loadChannel() {
+            try {
+                const response = await fetch(`/channels/${channelId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const channel = await response.json();
+                    document.getElementById('name').value = channel.name;
+                    document.getElementById('description').value = channel.description || '';
+                } else {
+                    const error = await response.text();
+                    alert(`Ошибка: ${error}`);
+                }
+            } catch (error) {
+                console.error('Ошибка при загрузке канала:', error);
+                alert('Произошла ошибка при загрузке канала');
+            }
+        }
 
         document.getElementById('updateChannelForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -63,22 +92,26 @@
                 description: document.getElementById('description').value
             };
 
-            const response = await fetch(`/channels/put/${channelId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(channelData)
-            });
+            try {
+                const response = await fetch(`/channels/put/${channelId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(channelData)
+                });
 
-            if (response.ok) {
-                alert('Канал успешно обновлен!');
-                window.location.href = `get_channel.html?id=${channelId}`;
-            } else {
-
-                const statusCode = response.status;
-                alert(`Ошибка ${statusCode}`);
+                if (response.ok) {
+                    alert('Канал успешно обновлен!');
+                    window.location.href = `get_channel.html?id=${channelId}`;
+                } else {
+                    const error = await response.text();
+                    alert(`Ошибка: ${error}`);
+                }
+            } catch (error) {
+                console.error('Ошибка при обновлении канала:', error);
+                alert('Произошла ошибка при обновлении канала');
             }
         });
 

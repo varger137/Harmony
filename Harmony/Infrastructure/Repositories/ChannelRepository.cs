@@ -156,6 +156,30 @@ namespace TaskCraft.Repositories
 
     return channel?.Users.ToList() ?? new List<User>();
 }
+        public async Task<bool> RemoveUserFromChannel(Guid channelId, Guid userId)
+        {
+            var channel = await _context.Channels
+                .Include(p => p.Users)
+                .FirstOrDefaultAsync(p => p.Id == channelId);
+
+            var user = await _context.Users
+                .Include(u => u.Channels)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (channel == null || user == null)
+            {
+                return false;
+            }
+
+            // Удаляем пользователя из канала
+            channel.Users.Remove(user);
+            
+            // Удаляем канал из списка каналов пользователя
+            user.Channels.Remove(channel);
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
     
 }

@@ -7,25 +7,36 @@
     <link rel="stylesheet" href="../styles.css">
     <script type="module">
         import { checkTokenAndRedirect } from '../Utils/authUtils.js';
-        
-        // Проверяем токен при загрузке страницы
         if (!checkTokenAndRedirect()) {
-            // Прекращаем выполнение, если токен невалиден
             throw new Error('Invalid token');
         }
     </script>
 </head>
 <body>
     <div class="container">
-        <h1>Создать чат звонка</h1>
-        <form id="createCallChatForm">
-            <label for="name">Название:</label>
-            <input type="text" id="name" required><br>
-            <div class="nav-buttons">
-                <button type="submit">Создать</button>
-                <button onclick="window.location.href=`../ChannelFr/get_channel.html?id=${channelId}`">Отмена</button>
+        <div class="sidebar">
+            <h2>Навигация</h2>
+            <button onclick="window.location.href='../UserFr/get_account.html'">Профиль</button>
+            <button onclick="goBackToChannel()">К каналу</button>
+            <button class="danger" onclick="logout()">Выйти</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="profile-section">
+                <h1>Создать чат звонка</h1>
+                <form id="createCallChatForm" class="profile-form">
+                    <div class="input-group">
+                        <label for="name">Название</label>
+                        <input type="text" id="name" required>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" onclick="goBackToChannel()" class="secondary">Отмена</button>
+                        <button type="submit" class="primary">Создать</button>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 
     <script>
@@ -33,33 +44,46 @@
         const urlParams = new URLSearchParams(window.location.search);
         const channelId = urlParams.get('channelId');
 
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/UserFr/login_user.html';
+        }
 
-        if (!channelId) {
-            alert('Ошибка: ID канала не найден');
+        function goBackToChannel() {
+            if (channelId) {
+                window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
+            } else {
+                alert('Ошибка: ID канала не найден');
+            }
         }
 
         document.getElementById('createCallChatForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const callChatData = {
-                name: document.getElementById('name').value,
+                name: document.getElementById('name').value
             };
 
-            const response = await fetch(`/channels/${channelId}/call-chats/create`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(callChatData)
-            });
+            try {
+                const response = await fetch(`/channels/${channelId}/call-chats/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(callChatData)
+                });
 
-            if (response.ok) {
-                alert('Чат звонка успешно создан!');
-                window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
-            } else {
-                const error = await response.text();
-                alert(`Ошибка: ${error}`);
+                if (response.ok) {
+                    alert('Чат звонка создан!');
+                    goBackToChannel();
+                } else {
+                    const error = await response.text();
+                    alert(`Ошибка: ${error}`);
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка при создании чата звонка');
             }
         });
     </script>

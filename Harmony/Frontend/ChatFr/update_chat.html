@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Изменить чат</title>
     <link rel="stylesheet" href="../styles.css">
-        <script type="module">
+    <script type="module">
         import { checkTokenAndRedirect } from '../Utils/authUtils.js';
         if (!checkTokenAndRedirect()) {
             throw new Error('Invalid token');
@@ -14,15 +14,33 @@
 </head>
 <body>
     <div class="container">
-        <h1>Изменить чат</h1>
-        <form id="updateChatForm">
-            <label for="name">Название:</label>
-            <input type="text" id="name" required>
-            <div class="nav-buttons">
-                <button type="submit">Сохранить изменения</button>
-                <button onclick="window.location.href='../ChannelFr/get_channel.html?id=${channelId}'">Назад к каналу</button>
+        <div class="sidebar">
+            <h2>Навигация</h2>
+            <button onclick="window.location.href='../UserFr/get_account.html'">Мой профиль</button>
+            <button onclick="window.location.href='../ChannelFr/get_all_channels.html'">Мои каналы</button>
+            <button class="danger" onclick="logout()">Выйти</button>
+        </div>
+        
+        <div class="main-content">
+            <div class="profile-section">
+                <h1>Изменить чат</h1>
+                <form id="updateChatForm" class="form-container">
+                    <div class="input-field">
+                        <label for="name">Название чата</label>
+                        <input type="text" id="name" required placeholder="Введите название">
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" onclick="goBackToChannel()" class="secondary">
+                            Отмена
+                        </button>
+                        <button type="submit" class="primary">
+                            Сохранить изменения
+                        </button>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 
     <script>
@@ -31,12 +49,35 @@
         const chatId = urlParams.get('chatId');
         const channelId = urlParams.get('channelId');
 
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/UserFr/login_user.html';
+        }
 
+        function goBackToChannel() {
+            window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
+        }
 
+        async function loadChatInfo() {
+            try {
+                const response = await fetch(`/channels/${channelId}/chats/${chatId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
 
-        document.querySelector('button[onclick*="get_channel.html"]')
-            .setAttribute('onclick', `window.location.href='../ChannelFr/get_channel.html?id=${channelId}'`);
-
+                if (response.ok) {
+                    const chat = await response.json();
+                    document.getElementById('name').value = chat.name;
+                } else {
+                    const error = await response.text();
+                    alert(`Ошибка: ${error}`);
+                }
+            } catch (error) {
+                console.error('Ошибка при загрузке чата:', error);
+                alert('Произошла ошибка при загрузке чата');
+            }
+        }
 
         document.getElementById('updateChatForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -45,23 +86,30 @@
                 name: document.getElementById('name').value
             };
 
-            const response = await fetch(`/channels/${channelId}/chats/put/${chatId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(chatData)
-            });
+            try {
+                const response = await fetch(`/channels/${channelId}/chats/put/${chatId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(chatData)
+                });
 
-            if (response.ok) {
-                alert('Чат успешно обновлен!');
-                window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
-            } else {
-                const error = await response.text();
-                alert(`Ошибка: ${error}`);
+                if (response.ok) {
+                    alert('Чат успешно обновлен!');
+                    window.location.href = `../ChannelFr/get_channel.html?id=${channelId}`;
+                } else {
+                    const error = await response.text();
+                    alert(`Ошибка: ${error}`);
+                }
+            } catch (error) {
+                console.error('Ошибка при обновлении чата:', error);
+                alert('Произошла ошибка при обновлении чата');
             }
         });
+
+        loadChatInfo();
     </script>
 </body>
 </html>

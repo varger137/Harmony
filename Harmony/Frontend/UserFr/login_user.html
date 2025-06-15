@@ -5,39 +5,73 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Вход</title>
   <link rel="stylesheet" href="../styles.css">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      background-color: #353434;
+    }
+    
+    .auth-container {
+      width: 100%;
+      max-width: 500px;
+    }
+    
+    .auth-card {
+      width: 100%;
+      padding: 30px;
+      box-sizing: border-box;
+      background: #2f2d2d;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .auth-content {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+  </style>
 </head>
 <body>
   <div class="auth-container">
     <div class="auth-card">
-      <h1>С возвращением!</h1>
-      <p class="auth-subtitle">Мы так рады снова вас видеть!</p>
-      
-      <form id="loginForm" class="auth-form">
-        <div class="input-group">
-          <label for="login">Логин</label>
-          <input type="text" id="login" required>
-          <div id="loginError" class="error-message"></div>
-        </div>
-
-        <div class="input-group">
-          <label for="password">Пароль</label>
-          <input type="password" id="password" required>
-          <div class="checkbox-group">
-            <input type="checkbox" id="showPassword">
-            <label for="showPassword">Показать пароль</label>
+      <div class="auth-content">
+        <h1>С возвращением!</h1>
+        <p class="auth-subtitle">Мы так рады снова вас видеть!</p>
+        
+        <form id="loginForm" class="auth-form">
+          <div class="input-group">
+            <label for="login">Логин</label>
+            <input type="text" id="login" required>
+            <div id="loginError" class="error-message"></div>
           </div>
-          <div id="passwordError" class="error-message"></div>
+
+          <div class="input-group">
+            <label for="password">Пароль</label>
+            <input type="password" id="password" required>
+            <div class="checkbox-group">
+              <input type="checkbox" id="showPassword">
+              <label for="showPassword">Показать пароль</label>
+            </div>
+            <div id="passwordError" class="error-message"></div>
+          </div>
+
+          <button type="submit" class="auth-button">Войти</button>
+        </form>
+
+        <div class="auth-footer">
+          <span>Нужен аккаунт?</span>
+          <a href="/UserFr/register_user.html">Зарегистрироваться</a>
         </div>
 
-        <button type="submit" class="auth-button">Войти</button>
-      </form>
-
-      <div class="auth-footer">
-        <span>Нужен аккаунт?</span>
-        <a href="/UserFr/register_user.html">Зарегистрироваться</a>
+        <div id="result" class="result-message"></div>
       </div>
-
-      <div id="result" class="result-message"></div>
     </div>
   </div>
 
@@ -88,6 +122,12 @@
     document.getElementById('showPassword').addEventListener('change', function() {
       const passwordField = document.getElementById('password');
       passwordField.type = this.checked ? 'text' : 'password';
+    });
+
+            document.addEventListener('DOMContentLoaded', () => {
+      if (localStorage.getItem('token')) {
+        window.location.href = '/UserFr/get_account.html';
+      }
     });
   </script>
 </body>

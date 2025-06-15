@@ -61,7 +61,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         ValidateIssuerSigningKey = true,
     });
 
-// Добавляем SignalR
+
 builder.Services.AddSignalR();
 #endregion
 
@@ -159,10 +159,10 @@ app.Map("/ws/chat/{chatId}", async context =>
 
                     var messageJson = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(messageObject));
 
-                    // Check if ChannelId has a value before proceeding
+
                     if (messageObject.ChannelId.HasValue)
                     {
-                        // Отправляем сообщение всем участникам канала
+
                         var channelUsers = await channelRepository.GetChannelUsersAsync(messageObject.ChannelId.Value);
                         foreach (var userInChannel in channelUsers)
                         {
@@ -195,7 +195,7 @@ app.Map("/ws/chat/{chatId}", async context =>
 
 
 
-// Маппинг хаба для звонков
+
 app.MapHub<Harmony.Hubs.CallChatHub>("/hubs/callChat");
 
 
@@ -322,7 +322,7 @@ app.MapPost("/users/login", async (UserRepository userRepository, LoginUserDTO l
 
     var token = AuthOptions.CreateToken(claims.ToDictionary(claim => claim.Type, claim => claim.Value));
 
-    // Возвращаем никнейм вместе с токеном
+
     return Results.Ok(new
     {
         Token = token,
@@ -447,6 +447,38 @@ app.MapPost("/channels/{channelId}/join", [Authorize] async (ChannelRepository c
     await channelRepository.AddUserToChannel(channelId, userId);
 
     return Results.Ok("User successfully joined the channel");
+});
+app.MapPost("/channels/{channelId}/leave", [Authorize] async (
+    ChannelRepository channelRepository, 
+    HttpContext ctx, 
+    Guid channelId) =>
+{
+    var userId = Guid.Parse(ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+    
+
+    if (!await channelRepository.IsUserInChannel(channelId, userId))
+    {
+        return Results.BadRequest("Вы не состоите в этом канале");
+    }
+
+
+    var channel = await channelRepository.GetChannelById(channelId);
+    if (channel == null)
+    {
+        return Results.NotFound("Канал не найден");
+    }
+
+
+    if (channel.OwnerId == userId)
+    {
+        return Results.BadRequest("Владелец не может покинуть канал. Удалите канал вместо этого.");
+    }
+
+
+    var success = await channelRepository.RemoveUserFromChannel(channelId, userId);
+    return success 
+        ? Results.Ok("Вы успешно покинули канал") 
+        : Results.Problem("Не удалось покинуть канал");
 });
 #endregion
 
